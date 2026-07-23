@@ -116,7 +116,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         # ================= LEFT SIDEBAR =================
         self.sidebar = ctk.CTkFrame(self, width=280, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.sidebar.grid_rowconfigure(22, weight=1)
+        self.sidebar.grid_rowconfigure(19, weight=1)
 
         # Title
         self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
@@ -190,13 +190,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Actions
         self.scan_btn = ctk.CTkButton(self.sidebar, text="Ordner neu scannen", command=self._scan_folder, state="disabled")
-        self.scan_btn.grid(row=19, column=0, padx=20, pady=4, sticky="ew")
+        self.scan_btn.grid(row=20, column=0, padx=20, pady=4, sticky="ew")
 
         self.analyze_btn = ctk.CTkButton(self.sidebar, text="LLM-Analyse starten", command=self._start_analysis, state="disabled", fg_color="#2b712b", hover_color="#1e521e")
-        self.analyze_btn.grid(row=20, column=0, padx=20, pady=4, sticky="ew")
+        self.analyze_btn.grid(row=21, column=0, padx=20, pady=4, sticky="ew")
 
         self.splitter_btn = ctk.CTkButton(self.sidebar, text="✂ MP3 nach Kapiteln trennen...", command=self._open_splitter_dialog, fg_color="#632b71", hover_color="#461e52")
-        self.splitter_btn.grid(row=21, column=0, padx=20, pady=(4, 15), sticky="ew")
+        self.splitter_btn.grid(row=22, column=0, padx=20, pady=(4, 15), sticky="ew")
 
 
         # ================= MAIN AREA =================
@@ -1078,12 +1078,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.move_tracks_var.set(False)
 
     def _update_live_preview(self):
-        """Updates live preview of target folder name and target MP3 file names."""
+        """Updates live preview of target folder name and target MP3 file names as a directory tree."""
         if not hasattr(self, "preview_folder_lbl") or not hasattr(self, "preview_textbox"):
             return
 
         album_artist = self.form_entries["album_artist"].get().strip() if "album_artist" in self.form_entries else ""
         album = self.form_entries["album"].get().strip() if "album" in self.form_entries else ""
+        
         # Ensure single digit prefix in album name is padded to 2 digits for preview (e.g. "4 - " -> "04 - ")
         import re
         match = re.match(r"^(\d+)\s*-\s*(.*)$", album)
@@ -1100,33 +1101,41 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
             ep_folder_name = ep_folder_name.replace(char, "_")
 
+        self.preview_folder_lbl.configure(text="🔍 Vorschau der Ziel-Ordner- & Dateistruktur:")
+        self.preview_textbox.delete("0.0", tk.END)
+
+        tree_lines = []
+        indent = ""
+
+        # Build tree structure
         if self.parent_series_var.get() and album_artist:
             clean_series = album_artist
             for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                 clean_series = clean_series.replace(char, "_")
-            preview_structure = f"{clean_series} / {ep_folder_name}"
+            tree_lines.append(f"📁 {clean_series}")
+            tree_lines.append(f"└── 📁 {ep_folder_name}")
+            indent = "     "
         else:
-            preview_structure = ep_folder_name
-
-        self.preview_folder_lbl.configure(text=f"📁 Ziel-Ordnerstruktur:  {preview_structure}")
-
-        self.preview_textbox.delete("0.0", tk.END)
+            tree_lines.append(f"📁 {ep_folder_name}")
+            indent = "└── "
 
         if self.merge_var.get():
-            # Merged into single MP3 file
             merged_filename = f"{album}.mp3" if album else "Hörspiel_Gesamt.mp3"
-            self.preview_textbox.insert(tk.END, "🔗 VERLUSTFREI ZUSAMMENGEFÜGT (1 Gesamtdaten-MP3 mit Kapitel-Frames):\n")
-            self.preview_textbox.insert(tk.END, f"   📄 Datei: {merged_filename}\n\n")
-            self.preview_textbox.insert(tk.END, f"   Eingebettete ID3v2.3/v2.4 Kapitel ({len(self.track_rows)} Marker):\n")
+            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                merged_filename = merged_filename.replace(char, "_")
+            
+            tree_lines.append(f"{indent}└── 📄 {merged_filename} (Zusammengefügt)")
+            
+            # Show embedded chapters
+            child_indent = indent + "     "
+            chapter_count = len(self.track_rows)
             for idx, row in enumerate(self.track_rows, 1):
                 clean_t = row["title_entry"].get() if ("title_entry" in row and hasattr(row["title_entry"], "get")) else row.get("clean_title", "")
-                self.preview_textbox.insert(tk.END, f"   • Kapitel {idx:02d}: {clean_t}\n")
+                is_last_chapter = (idx == chapter_count)
+                bullet = "└── " if is_last_chapter else "├── "
+                tree_lines.append(f"{child_indent}{bullet}📌 Kapitel {idx:02d}: {clean_t}")
         else:
-            # Multi-file or single-file rename
             file_count = len(self.track_rows)
-            header_text = "🎵 ZIEL-MP3 DATEIEN (1 Einzeldatei):" if file_count == 1 else f"🎵 ZIEL-MP3 DATEIEN ({file_count} Einzeldateien):"
-            self.preview_textbox.insert(tk.END, f"{header_text}\n")
-
             for idx, row in enumerate(self.track_rows, 1):
                 clean_t = row["title_entry"].get() if ("title_entry" in row and hasattr(row["title_entry"], "get")) else row.get("clean_title", "")
                 try:
@@ -1135,7 +1144,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     num_val = idx
 
                 filename = f"{num_val:02d} - {clean_t}.mp3"
-                self.preview_textbox.insert(tk.END, f"   📄 Datei {idx:02d}: {filename}\n")
+                is_last_file = (idx == file_count)
+                bullet = "└── " if is_last_file else "├── "
+                tree_lines.append(f"{indent}{bullet}📄 {filename}")
+
+        self.preview_textbox.insert("0.0", "\n".join(tree_lines))
 
     def _move_track(self, index: int, direction: int):
         """Swaps track order up or down."""
