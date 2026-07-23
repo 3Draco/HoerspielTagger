@@ -304,10 +304,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.tracks_container.grid_columnconfigure(1, weight=3) # clean title entry
 
         # Live Preview Card (Result after Rename/Merge)
-        self.preview_card = ctk.CTkFrame(self.form_scroll, fg_color=("#eaf2fa", "#1e293b"), border_width=1, border_color="#1f538d", corner_radius=8)
+        self.preview_card = ctk.CTkFrame(self.form_scroll, corner_radius=8)
         self.preview_card.grid(row=10, column=0, columnspan=3, sticky="nsew", padx=5, pady=(15, 10))
 
-        preview_header = ctk.CTkLabel(self.preview_card, text="🔍 Live-Vorschau (Ziel-Ordner & MP3-Dateinamen nach Umbenennen):", font=ctk.CTkFont(size=13, weight="bold"), text_color="#1f538d")
+        preview_header = ctk.CTkLabel(self.preview_card, text="🔍 Live-Vorschau (Ziel-Ordner & MP3-Dateinamen nach Umbenennen):", font=ctk.CTkFont(size=13, weight="bold"))
         preview_header.pack(anchor="w", padx=12, pady=(10, 4))
 
         self.preview_folder_lbl = ctk.CTkLabel(self.preview_card, text="📁 Ziel-Ordnername: -", font=ctk.CTkFont(size=12, weight="bold"), anchor="w", justify="left")
