@@ -116,7 +116,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         # ================= LEFT SIDEBAR =================
         self.sidebar = ctk.CTkFrame(self, width=280, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.sidebar.grid_rowconfigure(16, weight=1)
+        self.sidebar.grid_rowconfigure(22, weight=1)
 
         # Title
         self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
@@ -346,12 +346,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
 
     def _create_form_row(self, row_idx: int, label_text: str, id3_tag: str, hint_text: str, key: str):
-        # Column 0: Tag Label
-        label_frame = ctk.CTkFrame(self.form_scroll, fg_color="transparent")
-        label_frame.grid(row=row_idx, column=0, padx=10, pady=4, sticky="ne")
-
-        ctk.CTkLabel(label_frame, text=label_text, font=ctk.CTkFont(weight="bold")).pack(anchor="e")
-        ctk.CTkLabel(label_frame, text=f"ID3: {id3_tag}", font=ctk.CTkFont(size=10), text_color="#3b82f6").pack(anchor="e")
+        # Column 0: Tag Label (align to top-right of entries)
+        label_lbl = ctk.CTkLabel(self.form_scroll, text=label_text, font=ctk.CTkFont(weight="bold"))
+        label_lbl.grid(row=row_idx, column=0, padx=10, pady=(8, 0), sticky="ne")
 
         # Column 1: Read-only current MP3 tag (Vorher)
         curr_frame = ctk.CTkFrame(self.form_scroll, fg_color="transparent")
@@ -361,6 +358,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         curr_ent = ctk.CTkEntry(curr_frame, state="disabled", fg_color=("#e2e8f0", "#1e293b"), text_color="gray")
         curr_ent.pack(fill="x")
         self.current_tag_entries[key] = curr_ent
+
+        # Blue ID3 label underneath the current value entry
+        ctk.CTkLabel(curr_frame, text=f"ID3: {id3_tag}", font=ctk.CTkFont(size=10), text_color="#3b82f6").pack(anchor="w", pady=(1, 0))
 
         # Column 2: LLM Proposal entry (Nachher - editable)
         entry_frame = ctk.CTkFrame(self.form_scroll, fg_color="transparent")
