@@ -463,13 +463,31 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
             album_artist = ""
             album_name = album["folder_name"]
+            series_part = ""
+
+            # Pad prefix number to 2 digits if matches (e.g. "4 - Title" -> "04 - Title")
+            import re
+            match = re.match(r"^(\d+)\s*-\s*(.*)$", album_name)
+            if match:
+                num_str, title_str = match.groups()
+                album_name = f"{int(num_str):02d} - {title_str}"
+                series_part = num_str.zfill(2)
+
             year_str = ""
             genre_str = "Hörspiel"
 
             if orig_tracks:
                 t0 = orig_tracks[0]
                 album_artist = t0.get("album_artist") or t0.get("artist") or ""
-                album_name = t0.get("album") or album["folder_name"]
+                raw_album = t0.get("album") or album["folder_name"]
+                match_raw = re.match(r"^(\d+)\s*-\s*(.*)$", raw_album)
+                if match_raw:
+                    num_str, title_str = match_raw.groups()
+                    album_name = f"{int(num_str):02d} - {title_str}"
+                    series_part = num_str.zfill(2)
+                else:
+                    album_name = raw_album
+
                 if t0.get("year"):
                     year_str = str(t0["year"])
                 if t0.get("genre"):
@@ -480,7 +498,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "album": album_name,
                 "episode_title": album_name.split(" - ", 1)[-1] if " - " in album_name else album_name,
                 "series": album_artist,
-                "series_part": "",
+                "series_part": series_part,
                 "year": year_str,
                 "genre": genre_str
             }
@@ -1066,6 +1084,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         album_artist = self.form_entries["album_artist"].get().strip() if "album_artist" in self.form_entries else ""
         album = self.form_entries["album"].get().strip() if "album" in self.form_entries else ""
+        # Ensure single digit prefix in album name is padded to 2 digits for preview (e.g. "4 - " -> "04 - ")
+        import re
+        match = re.match(r"^(\d+)\s*-\s*(.*)$", album)
+        if match:
+            num_str, title_str = match.groups()
+            album = f"{int(num_str):02d} - {title_str}"
         folder_path_name = self.scan_results[self.current_album_idx]["folder_name"] if (self.scan_results and self.current_album_idx in range(len(self.scan_results))) else "Unbenannter Ordner"
 
         # Determine target folder name
@@ -1197,6 +1221,14 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         
         album_artist = self.form_entries["album_artist"].get()
         album_name = self.form_entries["album"].get()
+        
+        # Ensure single digit prefix in album name is padded to 2 digits (e.g. "4 - " -> "04 - ")
+        import re
+        match = re.match(r"^(\d+)\s*-\s*(.*)$", album_name)
+        if match:
+            num_str, title_str = match.groups()
+            album_name = f"{int(num_str):02d} - {title_str}"
+
         genre = self.form_entries["genre"].get()
         
         year_str = self.form_entries["year"].get()
