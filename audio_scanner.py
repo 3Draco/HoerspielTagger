@@ -40,19 +40,23 @@ class AudioScanner:
             
             tracks = []
             has_embedded_cover = False
+            has_chapters = False
 
             for path in file_paths:
                 track_info = cls.extract_mp3_info(path)
                 tracks.append(track_info)
                 if track_info["has_cover"]:
                     has_embedded_cover = True
+                if track_info["has_chapters"]:
+                    has_chapters = True
 
             scan_results.append({
                 "folder_path": str(folder),
                 "folder_name": folder.name,
                 "relative_folder_path": str(folder.relative_to(target_path)) if folder != target_path else "",
                 "tracks": tracks,
-                "has_embedded_cover": has_embedded_cover
+                "has_embedded_cover": has_embedded_cover,
+                "has_chapters": has_chapters
             })
 
         return scan_results
@@ -71,7 +75,8 @@ class AudioScanner:
             "year": None,
             "genre": "",
             "duration_ms": 0,
-            "has_cover": False
+            "has_cover": False,
+            "has_chapters": False
         }
 
         try:
@@ -82,11 +87,12 @@ class AudioScanner:
             if audio.tags:
                 tags = audio.tags
                 
-                # Check for cover art
+                # Check for cover art & chapters
                 for key in tags.keys():
                     if key.startswith("APIC"):
                         info["has_cover"] = True
-                        break
+                    elif key.startswith("CHAP"):
+                        info["has_chapters"] = True
                 
                 # Extract common ID3v2 tags
                 # TIT2 = Title, TALB = Album, TPE1 = Artist, TPE2 = Album Artist, TRCK = Track, TDRC/TYER = Year, TCON = Genre

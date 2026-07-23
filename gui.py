@@ -551,6 +551,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 self.scan_textbox.insert(tk.END, f"   Relativer Pfad: {album['relative_folder_path']}\n")
                 self.scan_textbox.insert(tk.END, f"   Tracks: {len(album['tracks'])} MP3s\n")
                 self.scan_textbox.insert(tk.END, f"   Eingebettetes Cover vorhanden: {'Ja' if album['has_embedded_cover'] else 'Nein'}\n")
+                self.scan_textbox.insert(tk.END, f"   Eingebettete Kapitel vorhanden: {'Ja (kann getrennt werden)' if album.get('has_chapters') else 'Nein'}\n")
             
             self.scan_textbox.insert(tk.END, f"\nInsgesamt {len(self.scan_results)} Ordner mit Hörspielen gefunden.")
             
