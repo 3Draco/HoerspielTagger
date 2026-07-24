@@ -105,7 +105,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "rename_folder": self.rename_folder_var.get(),
                 "parent_series": self.parent_series_var.get(),
                 "cover": self.cover_var.get(),
-                "target_dir": self.target_dir
+                "target_dir": self.target_dir,
+                "source_itunes": self.source_itunes_var.get(),
+                "source_deezer": self.source_deezer_var.get(),
+                "source_musicbrainz": self.source_musicbrainz_var.get()
             }
             import json
             state_file = Path(__file__).parent / "window_state.json"
@@ -368,17 +371,34 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.cover_status_lbl = ctk.CTkLabel(self.cover_panel, text="", text_color="gray")
         self.cover_status_lbl.grid(row=2, column=0, padx=10, pady=5)
 
+        # Cover sources checkboxes frame
+        self.sources_frame = ctk.CTkFrame(self.cover_panel, fg_color="transparent")
+        self.sources_frame.grid(row=3, column=0, padx=10, pady=5)
+        
+        self.source_itunes_var = ctk.BooleanVar(value=True)
+        self.source_deezer_var = ctk.BooleanVar(value=True)
+        self.source_musicbrainz_var = ctk.BooleanVar(value=True)
+        
+        self.source_itunes_cb = ctk.CTkCheckBox(self.sources_frame, text="iTunes", variable=self.source_itunes_var, font=ctk.CTkFont(size=11))
+        self.source_itunes_cb.pack(side="left", padx=5)
+        
+        self.source_deezer_cb = ctk.CTkCheckBox(self.sources_frame, text="Deezer", variable=self.source_deezer_var, font=ctk.CTkFont(size=11))
+        self.source_deezer_cb.pack(side="left", padx=5)
+        
+        self.source_musicbrainz_cb = ctk.CTkCheckBox(self.sources_frame, text="MusicBrainz", variable=self.source_musicbrainz_var, font=ctk.CTkFont(size=11))
+        self.source_musicbrainz_cb.pack(side="left", padx=5)
+
         self.crop_cover_btn = ctk.CTkButton(self.cover_panel, text="✂ Cover zuschneiden...", command=self._open_crop_dialog, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.crop_cover_btn.grid(row=3, column=0, padx=20, pady=4, sticky="ew")
+        self.crop_cover_btn.grid(row=4, column=0, padx=20, pady=4, sticky="ew")
 
         self.chooser_cover_btn = ctk.CTkButton(self.cover_panel, text="🎨 Cover wählen (Varianten)...", command=self._open_cover_chooser, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.chooser_cover_btn.grid(row=4, column=0, padx=20, pady=4, sticky="ew")
+        self.chooser_cover_btn.grid(row=5, column=0, padx=20, pady=4, sticky="ew")
 
         self.manual_cover_btn = ctk.CTkButton(self.cover_panel, text="Cover aus Datei laden...", command=self._load_manual_cover, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.manual_cover_btn.grid(row=5, column=0, padx=20, pady=4, sticky="ew")
+        self.manual_cover_btn.grid(row=6, column=0, padx=20, pady=4, sticky="ew")
 
         self.apply_btn = ctk.CTkButton(self.cover_panel, text="Speichern & Umbenennen", command=self._apply_metadata, state="disabled", fg_color="#1f538d", hover_color="#143960")
-        self.apply_btn.grid(row=6, column=0, padx=20, pady=(15, 20), sticky="ew")
+        self.apply_btn.grid(row=7, column=0, padx=20, pady=(15, 20), sticky="ew")
 
 
     def _create_form_row(self, row_idx: int, label_text: str, id3_tag: str, hint_text: str, key: str):
@@ -424,6 +444,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.rename_folder_var.set(self.loaded_settings.get("rename_folder", True))
         self.parent_series_var.set(self.loaded_settings.get("parent_series", True))
         self.cover_var.set(self.loaded_settings.get("cover", True))
+
+        # Load cover sources settings
+        self.source_itunes_var.set(self.loaded_settings.get("source_itunes", True))
+        self.source_deezer_var.set(self.loaded_settings.get("source_deezer", True))
+        self.source_musicbrainz_var.set(self.loaded_settings.get("source_musicbrainz", True))
 
         # Handle enabling/disabling checkbox states dynamically based on the loaded merge option
         self._on_merge_toggle()
@@ -840,18 +865,26 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.crop_cover_btn.configure(state="disabled")
 
     def _open_cover_chooser(self):
-        """Opens modal dialog for choosing between multiple candidate album covers from iTunes."""
+        """Opens modal dialog for choosing between multiple candidate album covers from active sources."""
         artist = self.form_entries["album_artist"].get()
         album = self.form_entries["album"].get()
         title = self.form_entries["series"].get() or album
 
+        sources = []
+        if self.source_itunes_var.get():
+            sources.append("itunes")
+        if self.source_deezer_var.get():
+            sources.append("deezer")
+        if self.source_musicbrainz_var.get():
+            sources.append("musicbrainz")
+
         def fetch_and_open():
-            candidates = CoverDownloader.search_cover_candidates(artist, album, title)
+            candidates = CoverDownloader.search_cover_candidates(artist, album, title, sources=sources)
             def open_dialog():
                 def on_selected(new_bytes):
                     self.cover_bytes = new_bytes
                     self._display_cover_image(new_bytes)
-                    self.cover_status_lbl.configure(text="Cover aus iTunes-Varianten gewählt", text_color="#2b712b")
+                    self.cover_status_lbl.configure(text="Cover aus Varianten gewählt", text_color="#2b712b")
                     self._save_current_album_state()
 
                 CoverChooserDialog(self, candidates, on_selected)
@@ -929,14 +962,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
                 # 2. Cover Art search for this folder
                 cover_bytes = None
-                cover_status = "iTunes-Suche erfolglos"
+                cover_status = "Cover-Suche erfolglos"
                 cover_color = "#7a2b2b"
 
                 if self.cover_var.get() and not album["has_embedded_cover"]:
-                    cover_url = CoverDownloader.search_cover_url(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None))
+                    sources = []
+                    if self.source_itunes_var.get():
+                        sources.append("itunes")
+                    if self.source_deezer_var.get():
+                        sources.append("deezer")
+                    if self.source_musicbrainz_var.get():
+                        sources.append("musicbrainz")
+
+                    cover_url = CoverDownloader.search_cover_url(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
                     if cover_url:
                         cover_bytes = CoverDownloader.download_image(cover_url)
-                        cover_status = "Cover von iTunes geladen"
+                        cover_status = "Cover geladen"
                         cover_color = "#2b712b"
 
                 if not cover_bytes:
