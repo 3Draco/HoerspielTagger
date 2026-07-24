@@ -582,11 +582,44 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not raw_data:
             return
 
-        # Extract URL using regex to handle complex drag data formats (e.g. wrapped in braces or HTML)
         import re
+        import base64
+        import urllib.parse
+        from PIL import Image
+        import io
+
+        # 1. Check if it is a base64 data URL
+        if "data:image/" in raw_data and ";base64," in raw_data:
+            try:
+                header, base64_data = raw_data.split(";base64,", 1)
+                base64_data = base64_data.strip("{} \n\r")
+                img_data = base64.b64decode(base64_data)
+                # Verify image
+                Image.open(io.BytesIO(img_data))
+                self.cover_bytes = img_data
+                self._display_cover_image(self.cover_bytes)
+                self.cover_status_lbl.configure(text="Cover per Drag & Drop geladen (Base64)", text_color="#2b712b")
+                self._save_current_album_state()
+                return
+            except Exception as e:
+                messagebox.showerror("Fehler beim Dekodieren", f"Konnte Base64-Bild nicht lesen: {e}")
+                return
+
+        # 2. Extract URL using regex
         url_match = re.search(r'(https?://[^\s{}"]+)', raw_data)
         if url_match:
             url = url_match.group(1)
+            
+            # Check if it is a Google Image Search redirect URL and extract the actual image URL
+            if "google." in url and "imgurl=" in url:
+                try:
+                    parsed = urllib.parse.urlparse(url)
+                    queries = urllib.parse.parse_qs(parsed.query)
+                    if "imgurl" in queries:
+                        url = queries["imgurl"][0]
+                except Exception as e:
+                    print(f"Error parsing Google redirect URL: {e}")
+
             self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
             self.loading_lbl.configure(text="⏳ Lade Cover aus Web...", text_color="#1f538d")
             self.update()
@@ -594,14 +627,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             def download_web_cover():
                 import requests
                 try:
-                    resp = requests.get(url, timeout=10)
+                    resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
                     if resp.status_code == 200:
-                        def success():
-                            self.cover_bytes = resp.content
-                            self._display_cover_image(self.cover_bytes)
-                            self.cover_status_lbl.configure(text="Cover von URL geladen", text_color="#2b712b")
-                            self._save_current_album_state()
-                        self.after(0, success)
+                        # Verify that the downloaded bytes actually form a valid image
+                        try:
+                            Image.open(io.BytesIO(resp.content))
+                            def success():
+                                self.cover_bytes = resp.content
+                                self._display_cover_image(self.cover_bytes)
+                                self.cover_status_lbl.configure(text="Cover von URL geladen", text_color="#2b712b")
+                                self._save_current_album_state()
+                            self.after(0, success)
+                        except Exception as img_err:
+                            self.after(0, lambda: messagebox.showerror(
+                                "Ungültiges Bild", 
+                                f"Die heruntergeladene Datei ist kein gültiges Bild.\nURL: {url[:60]}...\n\nFehler: {img_err}"
+                            ))
                     else:
                         self.after(0, lambda: messagebox.showerror("Download Fehler", f"Server lieferte Statuscode {resp.status_code}"))
                 except Exception as err:
@@ -611,19 +652,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     
             threading.Thread(target=download_web_cover, daemon=True).start()
         else:
-            # Handle local file drops
+            # 3. Handle local file drops
             try:
                 paths = self.tk.splitlist(raw_data)
                 if paths:
                     p = Path(paths[0])
                     if p.exists() and p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
                         with open(p, "rb") as f:
-                            self.cover_bytes = f.read()
+                            img_data = f.read()
+                        # Verify image
+                        Image.open(io.BytesIO(img_data))
+                        self.cover_bytes = img_data
                         self._display_cover_image(self.cover_bytes)
                         self.cover_status_lbl.configure(text="Cover per Drag & Drop geladen", text_color="#2b712b")
                         self._save_current_album_state()
             except Exception as e:
-                print(f"Error handling cover drop: {e}")
+                messagebox.showerror("Fehler beim Laden", f"Konnte lokale Bilddatei nicht lesen: {e}")
 
     def _on_cover_source_changed(self):
         """Triggered when cover sources checkboxes are toggled by the user."""
