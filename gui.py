@@ -1212,7 +1212,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             indent = "     "
         else:
             tree_lines.append(f"📁 {ep_folder_name}")
-            indent = "└── "
+            indent = ""
 
         if self.merge_var.get():
             merged_filename = f"{album}.mp3" if album else "Hörspiel_Gesamt.mp3"
