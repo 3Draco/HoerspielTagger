@@ -32,14 +32,15 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         self.title("📻 HoerspielTag - AI-Powered Audio Drama Tagger")
         
-        # Load last window geometry if exists
+        # Load last settings and window geometry if exists
         try:
             import json
             state_file = Path(__file__).parent / "window_state.json"
+            self.loaded_settings = {}
             if state_file.exists():
                 with open(state_file, "r") as f:
-                    data = json.load(f)
-                    geom = data.get("geometry")
+                    self.loaded_settings = json.load(f)
+                    geom = self.loaded_settings.get("geometry")
                     if geom:
                         parts = geom.split("+")
                         if len(parts) == 3:
@@ -57,6 +58,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             else:
                 self.geometry("1200x800")
         except Exception:
+            self.loaded_settings = {}
             self.geometry("1200x800")
 
         self.minsize(1000, 700)
@@ -88,13 +90,27 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         """Ensures immediate and clean application termination on single click."""
         self.is_processing = False
         
-        # Save window geometry
+        # Save settings and window geometry
         try:
             geom = self.geometry()
+            settings = {
+                "geometry": geom,
+                "api_url": self.api_url_ent.get(),
+                "api_key": self.api_key_ent.get(),
+                "model_id": self.model_ent.get(),
+                "dry_run": self.dry_run_var.get(),
+                "merge": self.merge_var.get(),
+                "move_tracks": self.move_tracks_var.get(),
+                "delete_tracks": self.delete_tracks_var.get(),
+                "rename_folder": self.rename_folder_var.get(),
+                "parent_series": self.parent_series_var.get(),
+                "cover": self.cover_var.get(),
+                "target_dir": self.target_dir
+            }
             import json
             state_file = Path(__file__).parent / "window_state.json"
             with open(state_file, "w") as f:
-                json.dump({"geometry": geom}, f)
+                json.dump(settings, f)
         except Exception:
             pass
 
@@ -395,9 +411,30 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.form_entries[key] = ent
 
     def _load_config_defaults(self):
-        self.api_url_ent.insert(0, config.LLM_API_BASE_URL)
-        self.api_key_ent.insert(0, config.LLM_API_KEY)
-        self.model_ent.insert(0, config.LLM_MODEL_ID)
+        # Load API settings
+        self.api_url_ent.insert(0, self.loaded_settings.get("api_url", config.LLM_API_BASE_URL))
+        self.api_key_ent.insert(0, self.loaded_settings.get("api_key", config.LLM_API_KEY))
+        self.model_ent.insert(0, self.loaded_settings.get("model_id", config.LLM_MODEL_ID))
+
+        # Load options checkboxes
+        self.dry_run_var.set(self.loaded_settings.get("dry_run", True))
+        self.merge_var.set(self.loaded_settings.get("merge", False))
+        self.move_tracks_var.set(self.loaded_settings.get("move_tracks", False))
+        self.delete_tracks_var.set(self.loaded_settings.get("delete_tracks", False))
+        self.rename_folder_var.set(self.loaded_settings.get("rename_folder", True))
+        self.parent_series_var.set(self.loaded_settings.get("parent_series", True))
+        self.cover_var.set(self.loaded_settings.get("cover", True))
+
+        # Handle enabling/disabling checkbox states dynamically based on the loaded merge option
+        self._on_merge_toggle()
+
+        # Load last target directory if exists and still valid
+        last_dir = self.loaded_settings.get("target_dir")
+        if last_dir and Path(last_dir).exists():
+            self.target_dir = last_dir
+            self.folder_lbl.configure(text=last_dir)
+            self._scan_folder(reset_states=True)
+
         self._test_llm_connection()
 
     def _test_llm_connection(self):
