@@ -213,8 +213,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.analyze_btn = ctk.CTkButton(self.sidebar, text="LLM-Analyse starten", command=self._start_analysis, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.analyze_btn.grid(row=21, column=0, padx=20, pady=4, sticky="ew")
 
+        self.clear_cache_btn = ctk.CTkButton(self.sidebar, text="🧹 Cache leeren", command=self._clear_cache, fg_color="#2d88ad", hover_color="#1e5e78")
+        self.clear_cache_btn.grid(row=22, column=0, padx=20, pady=4, sticky="ew")
+
         self.splitter_btn = ctk.CTkButton(self.sidebar, text="✂ MP3 nach Kapiteln trennen...", command=self._open_splitter_dialog, fg_color="#1f538d", hover_color="#143960")
-        self.splitter_btn.grid(row=22, column=0, padx=20, pady=(4, 15), sticky="ew")
+        self.splitter_btn.grid(row=23, column=0, padx=20, pady=(4, 15), sticky="ew")
 
 
         # ================= MAIN AREA =================
@@ -542,8 +545,29 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "cover_status_color": "#2b712b" if album["has_embedded_cover"] else "gray"
             }
 
+    def _clear_cache(self):
+        """Clears all cached album states and resets the editor."""
+        self.album_states = {}
+        self.cover_bytes = None
+        self._clear_editor()
+        self._scan_folder(reset_states=True)
+        
+        # Show temporary success message
+        self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
+        self.loading_lbl.configure(text="🧹 Cache erfolgreich geleert!", text_color="#2b712b")
+        self.after(3000, self._clear_status)
+
     def _scan_folder(self, reset_states=True, keep_index=False):
         if not self.target_dir:
+            return
+
+        if not Path(self.target_dir).exists():
+            self.scan_textbox.delete("0.0", tk.END)
+            self.scan_textbox.insert("0.0", f"Fehler: Der ausgewählte Ordner existiert nicht mehr:\n{self.target_dir}\n\nBitte wähle den Ordner erneut aus.")
+            self.folder_lbl.configure(text="Ordner existiert nicht mehr", text_color="red")
+            self.scan_results = []
+            self._update_album_nav()
+            self._clear_editor()
             return
 
         # Store the currently selected album's folder path
@@ -1506,6 +1530,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     new_key = str(final_folder_path)
                     if old_key in self.album_states:
                         self.album_states[new_key] = self.album_states.pop(old_key)
+                    if self.target_dir and Path(self.target_dir).resolve() == Path(old_key).resolve():
+                        self.target_dir = new_key
+                        self.folder_lbl.configure(text=new_key)
                 except Exception as folder_err:
                     print(f"Folder move warning: {folder_err}")
 
