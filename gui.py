@@ -228,7 +228,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.cover_cb.grid(row=18, column=0, padx=20, pady=2, sticky="w")
 
         self.flat_episodes_var = ctk.BooleanVar(value=False)
-        self.flat_episodes_cb = ctk.CTkCheckBox(self.sidebar, text="💿 Jede MP3 als eigene Folge", variable=self.flat_episodes_var, command=self._scan_folder)
+        self.flat_episodes_cb = ctk.CTkCheckBox(self.sidebar, text="💿 Jede MP3 als eigene Folge", variable=self.flat_episodes_var, command=self._on_flat_episodes_toggle)
         self.flat_episodes_cb.grid(row=19, column=0, padx=20, pady=2, sticky="w")
 
         # Actions
@@ -466,6 +466,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Load flat mode setting
         self.flat_episodes_var.set(self.loaded_settings.get("flat_episodes", False))
+        if self.flat_episodes_var.get():
+            self.rename_folder_cb.configure(text="📁 Episoden-Ordner anlegen")
+        else:
+            self.rename_folder_cb.configure(text="📁 Episoden-Ordner umbenennen")
 
         # Handle enabling/disabling checkbox states dynamically based on the loaded merge option
         self._on_merge_toggle()
@@ -1471,6 +1475,14 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.move_tracks_cb.configure(state="disabled")
             self.delete_tracks_cb.configure(state="disabled")
 
+    def _on_flat_episodes_toggle(self):
+        """Updates the rename folder checkbox text dynamically depending on flat mode."""
+        if self.flat_episodes_var.get():
+            self.rename_folder_cb.configure(text="📁 Episoden-Ordner anlegen")
+        else:
+            self.rename_folder_cb.configure(text="📁 Episoden-Ordner umbenennen")
+        self._scan_folder(reset_states=True)
+
     def _on_move_tracks_toggle(self):
         if self.move_tracks_var.get():
             self.delete_tracks_var.set(False)
@@ -1756,8 +1768,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         folder_path = Path(album["folder_path"])
         is_flat = album.get("flat_mode", False)
 
-        # 0. In flat mode, determine and create target folder immediately
-        if is_flat:
+        # 0. In flat mode, determine and create target folder immediately if option is active
+        if is_flat and (self.rename_folder_var.get() or self.parent_series_var.get()):
             target_ep_folder_name = album_name if (self.rename_folder_var.get() and album_name) else album["folder_name"]
             for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                 target_ep_folder_name = target_ep_folder_name.replace(char, "_")
@@ -1766,9 +1778,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 clean_series_name = album_artist
                 for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                     clean_series_name = clean_series_name.replace(char, "_")
-                final_folder_path = folder_path.parent / clean_series_name / target_ep_folder_name
-            elif self.rename_folder_var.get():
-                final_folder_path = folder_path.parent / target_ep_folder_name
+                final_folder_path = folder_path / clean_series_name / target_ep_folder_name
             else:
                 final_folder_path = folder_path / target_ep_folder_name
 
