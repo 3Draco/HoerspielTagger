@@ -510,13 +510,32 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             for widget in [self, self.drop_frame, self.drop_label, self.scan_textbox, self.sidebar]:
                 widget.drop_target_register(DND_FILES)
                 widget.dnd_bind('<<Drop>>', self._on_drop_folder)
-            
-            # Register DND for cover widgets to support dragging image files or URLs
-            for widget in [self.cover_panel, self.cover_img_label]:
-                widget.drop_target_register(DND_FILES)
-                widget.dnd_bind('<<Drop>>', self._on_drop_cover)
         except Exception as e:
-            print(f"Drag & Drop Setup Info: {e}")
+            print(f"Folder Drag & Drop Setup Info: {e}")
+            
+        try:
+            # Gather cover widgets, including underlying Tkinter components for safety in CTk
+            cover_widgets = [self.cover_panel, self.cover_img_label]
+            if hasattr(self.cover_panel, "_canvas"):
+                cover_widgets.append(self.cover_panel._canvas)
+            if hasattr(self.cover_img_label, "_label"):
+                cover_widgets.append(self.cover_img_label._label)
+
+            for widget in cover_widgets:
+                # Register for files (local image files dropped)
+                try:
+                    widget.drop_target_register(DND_FILES)
+                    widget.dnd_bind('<<Drop>>', self._on_drop_cover)
+                except Exception:
+                    pass
+                # Register for text/URLs (web images dragged directly from browser)
+                try:
+                    widget.drop_target_register("DND_Text")
+                    widget.dnd_bind('<<Drop>>', self._on_drop_cover)
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Cover Drag & Drop Setup Info: {e}")
 
     def _on_drop_folder(self, event):
         """Handles folder/file drag and drop events."""
