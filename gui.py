@@ -328,8 +328,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         preview_header = ctk.CTkLabel(self.preview_card, text="🔍 Live-Vorschau (Ziel-Ordner & MP3-Dateinamen nach Umbenennen):", font=ctk.CTkFont(size=13, weight="bold"))
         preview_header.pack(anchor="w", padx=12, pady=(10, 4))
 
-        self.preview_folder_lbl = ctk.CTkLabel(self.preview_card, text="📁 Ziel-Ordnername: -", font=ctk.CTkFont(size=12, weight="bold"), anchor="w", justify="left")
-        self.preview_folder_lbl.pack(anchor="w", padx=15, pady=2)
+
 
         self.preview_textbox = ctk.CTkTextbox(self.preview_card, height=130, font=ctk.CTkFont(family="Consolas", size=11))
         self.preview_textbox.pack(fill="both", expand=True, padx=12, pady=(4, 10))
@@ -1098,7 +1097,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _update_live_preview(self):
         """Updates live preview of target folder name and target MP3 file names as a directory tree."""
-        if not hasattr(self, "preview_folder_lbl") or not hasattr(self, "preview_textbox"):
+        if not hasattr(self, "preview_textbox"):
             return
 
         album_artist = self.form_entries["album_artist"].get().strip() if "album_artist" in self.form_entries else ""
@@ -1120,7 +1119,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
             ep_folder_name = ep_folder_name.replace(char, "_")
 
-        self.preview_folder_lbl.configure(text="🔍 Vorschau der Ziel-Ordner- & Dateistruktur:")
         self.preview_textbox.delete("0.0", tk.END)
 
         tree_lines = []
