@@ -118,9 +118,27 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         self.sidebar.grid_rowconfigure(19, weight=1)
 
-        # Title
-        self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
-        self.title_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
+        # Title / Logo
+        logo_path = Path(__file__).parent / "logo.png"
+        if logo_path.exists():
+            try:
+                logo_img = Image.open(logo_path)
+                self.logo_ctk = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(38, 38))
+                self.title_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+                self.title_frame.grid(row=0, column=0, padx=20, pady=(15, 10), sticky="ew")
+                self.title_frame.grid_columnconfigure(1, weight=1)
+                
+                self.logo_lbl = ctk.CTkLabel(self.title_frame, image=self.logo_ctk, text="")
+                self.logo_lbl.grid(row=0, column=0, padx=(0, 10))
+                
+                self.title_lbl = ctk.CTkLabel(self.title_frame, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
+                self.title_lbl.grid(row=0, column=1, sticky="w")
+            except Exception:
+                self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
+                self.title_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
+        else:
+            self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
+            self.title_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
 
         # Folder Selection
         self.folder_btn = ctk.CTkButton(self.sidebar, text="Ordner wählen...", command=self._browse_folder, fg_color="#1f538d")
@@ -189,13 +207,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.cover_cb.grid(row=18, column=0, padx=20, pady=2, sticky="w")
 
         # Actions
-        self.scan_btn = ctk.CTkButton(self.sidebar, text="Ordner neu scannen", command=self._scan_folder, state="disabled")
+        self.scan_btn = ctk.CTkButton(self.sidebar, text="Ordner neu scannen", command=self._scan_folder, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.scan_btn.grid(row=20, column=0, padx=20, pady=4, sticky="ew")
 
-        self.analyze_btn = ctk.CTkButton(self.sidebar, text="LLM-Analyse starten", command=self._start_analysis, state="disabled", fg_color="#2b712b", hover_color="#1e521e")
+        self.analyze_btn = ctk.CTkButton(self.sidebar, text="LLM-Analyse starten", command=self._start_analysis, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.analyze_btn.grid(row=21, column=0, padx=20, pady=4, sticky="ew")
 
-        self.splitter_btn = ctk.CTkButton(self.sidebar, text="✂ MP3 nach Kapiteln trennen...", command=self._open_splitter_dialog, fg_color="#632b71", hover_color="#461e52")
+        self.splitter_btn = ctk.CTkButton(self.sidebar, text="✂ MP3 nach Kapiteln trennen...", command=self._open_splitter_dialog, fg_color="#1f538d", hover_color="#143960")
         self.splitter_btn.grid(row=22, column=0, padx=20, pady=(4, 15), sticky="ew")
 
 
@@ -332,13 +350,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.cover_status_lbl = ctk.CTkLabel(self.cover_panel, text="", text_color="gray")
         self.cover_status_lbl.grid(row=2, column=0, padx=10, pady=5)
 
-        self.crop_cover_btn = ctk.CTkButton(self.cover_panel, text="✂ Cover zuschneiden...", command=self._open_crop_dialog, state="disabled", fg_color="#2b712b", hover_color="#1e521e")
+        self.crop_cover_btn = ctk.CTkButton(self.cover_panel, text="✂ Cover zuschneiden...", command=self._open_crop_dialog, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.crop_cover_btn.grid(row=3, column=0, padx=20, pady=4, sticky="ew")
 
-        self.chooser_cover_btn = ctk.CTkButton(self.cover_panel, text="🎨 Cover wählen (Varianten)...", command=self._open_cover_chooser, state="disabled", fg_color="#632b71", hover_color="#461e52")
+        self.chooser_cover_btn = ctk.CTkButton(self.cover_panel, text="🎨 Cover wählen (Varianten)...", command=self._open_cover_chooser, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.chooser_cover_btn.grid(row=4, column=0, padx=20, pady=4, sticky="ew")
 
-        self.manual_cover_btn = ctk.CTkButton(self.cover_panel, text="Cover aus Datei laden...", command=self._load_manual_cover, state="disabled")
+        self.manual_cover_btn = ctk.CTkButton(self.cover_panel, text="Cover aus Datei laden...", command=self._load_manual_cover, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.manual_cover_btn.grid(row=5, column=0, padx=20, pady=4, sticky="ew")
 
         self.apply_btn = ctk.CTkButton(self.cover_panel, text="Speichern & Umbenennen", command=self._apply_metadata, state="disabled", fg_color="#1f538d", hover_color="#143960")
