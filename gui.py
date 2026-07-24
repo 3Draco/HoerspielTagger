@@ -106,6 +106,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "parent_series": self.parent_series_var.get(),
                 "cover": self.cover_var.get(),
                 "target_dir": self.target_dir,
+                "source_embedded": self.source_embedded_var.get(),
                 "source_itunes": self.source_itunes_var.get(),
                 "source_deezer": self.source_deezer_var.get(),
                 "source_musicbrainz": self.source_musicbrainz_var.get(),
@@ -380,17 +381,21 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.sources_frame = ctk.CTkFrame(self.cover_panel, fg_color="transparent")
         self.sources_frame.grid(row=3, column=0, padx=50, pady=5, sticky="w")
         
+        self.source_embedded_var = ctk.BooleanVar(value=True)
         self.source_itunes_var = ctk.BooleanVar(value=True)
         self.source_deezer_var = ctk.BooleanVar(value=True)
         self.source_musicbrainz_var = ctk.BooleanVar(value=True)
         
-        self.source_itunes_cb = ctk.CTkCheckBox(self.sources_frame, text="iTunes", variable=self.source_itunes_var)
+        self.source_embedded_cb = ctk.CTkCheckBox(self.sources_frame, text="Eingebettetes Cover", variable=self.source_embedded_var, command=self._on_cover_source_changed)
+        self.source_embedded_cb.pack(anchor="w", pady=2)
+        
+        self.source_itunes_cb = ctk.CTkCheckBox(self.sources_frame, text="iTunes", variable=self.source_itunes_var, command=self._on_cover_source_changed)
         self.source_itunes_cb.pack(anchor="w", pady=2)
         
-        self.source_deezer_cb = ctk.CTkCheckBox(self.sources_frame, text="Deezer", variable=self.source_deezer_var)
+        self.source_deezer_cb = ctk.CTkCheckBox(self.sources_frame, text="Deezer", variable=self.source_deezer_var, command=self._on_cover_source_changed)
         self.source_deezer_cb.pack(anchor="w", pady=2)
         
-        self.source_musicbrainz_cb = ctk.CTkCheckBox(self.sources_frame, text="MusicBrainz", variable=self.source_musicbrainz_var)
+        self.source_musicbrainz_cb = ctk.CTkCheckBox(self.sources_frame, text="MusicBrainz", variable=self.source_musicbrainz_var, command=self._on_cover_source_changed)
         self.source_musicbrainz_cb.pack(anchor="w", pady=2)
 
         self.crop_cover_btn = ctk.CTkButton(self.cover_panel, text="✂ Cover zuschneiden...", command=self._open_crop_dialog, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
@@ -454,6 +459,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.cover_var.set(self.loaded_settings.get("cover", True))
 
         # Load cover sources settings
+        self.source_embedded_var.set(self.loaded_settings.get("source_embedded", True))
         self.source_itunes_var.set(self.loaded_settings.get("source_itunes", True))
         self.source_deezer_var.set(self.loaded_settings.get("source_deezer", True))
         self.source_musicbrainz_var.set(self.loaded_settings.get("source_musicbrainz", True))
@@ -504,6 +510,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             for widget in [self, self.drop_frame, self.drop_label, self.scan_textbox, self.sidebar]:
                 widget.drop_target_register(DND_FILES)
                 widget.dnd_bind('<<Drop>>', self._on_drop_folder)
+            
+            # Register DND for cover widgets to support dragging image files or URLs
+            for widget in [self.cover_panel, self.cover_img_label]:
+                widget.drop_target_register(DND_FILES)
+                widget.dnd_bind('<<Drop>>', self._on_drop_cover)
         except Exception as e:
             print(f"Drag & Drop Setup Info: {e}")
 
@@ -545,6 +556,127 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.folder_lbl.configure(text=str(target))
         self.scan_btn.configure(state="normal")
         self._scan_folder()
+
+    def _on_drop_cover(self, event):
+        """Handles cover Drag & Drop events (e.g. from local images or web browser URLs)."""
+        raw_data = event.data
+        if not raw_data:
+            return
+
+        # Check if it is a web URL
+        url = raw_data.strip("{}").strip()
+        if url.startswith("http://") or url.startswith("https://"):
+            self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
+            self.loading_lbl.configure(text="⏳ Lade Cover aus Web...", text_color="#1f538d")
+            self.update()
+            
+            def download_web_cover():
+                import requests
+                try:
+                    resp = requests.get(url, timeout=10)
+                    if resp.status_code == 200:
+                        def success():
+                            self.cover_bytes = resp.content
+                            self._display_cover_image(self.cover_bytes)
+                            self.cover_status_lbl.configure(text="Cover von URL geladen", text_color="#2b712b")
+                            self._save_current_album_state()
+                        self.after(0, success)
+                    else:
+                        self.after(0, lambda: messagebox.showerror("Download Fehler", f"Server lieferte Statuscode {resp.status_code}"))
+                except Exception as err:
+                    self.after(0, lambda e=err: messagebox.showerror("Download Fehler", f"Konnte Bild nicht herunterladen: {e}"))
+                finally:
+                    self.after(0, self._clear_status)
+                    
+            threading.Thread(target=download_web_cover, daemon=True).start()
+        else:
+            # Handle local file drops
+            try:
+                paths = self.tk.splitlist(raw_data)
+                if paths:
+                    p = Path(paths[0])
+                    if p.exists() and p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
+                        with open(p, "rb") as f:
+                            self.cover_bytes = f.read()
+                        self._display_cover_image(self.cover_bytes)
+                        self.cover_status_lbl.configure(text="Cover per Drag & Drop geladen", text_color="#2b712b")
+                        self._save_current_album_state()
+            except Exception as e:
+                print(f"Error handling cover drop: {e}")
+
+    def _on_cover_source_changed(self):
+        """Triggered when cover sources checkboxes are toggled by the user."""
+        if not self.scan_results or self.current_album_idx not in range(len(self.scan_results)):
+            return
+
+        album = self.scan_results[self.current_album_idx]
+        folder_path = album["folder_path"]
+        state = self.album_states.get(folder_path, {})
+        orig_tracks = album.get("tracks", [])
+        t0 = orig_tracks[0] if orig_tracks else {}
+
+        # If "Eingebettetes Cover" is checked and the folder had an embedded cover originally
+        if self.source_embedded_var.get() and album.get("has_embedded_cover"):
+            # Load the original embedded cover
+            try:
+                from mutagen.mp3 import MP3
+                audio = MP3(t0["filepath"])
+                if audio.tags:
+                    for key in audio.tags.keys():
+                        if key.startswith("APIC"):
+                            self.cover_bytes = audio.tags[key].data
+                            self._display_cover_image(self.cover_bytes)
+                            self.cover_status_lbl.configure(text="Originales eingebettetes Cover", text_color="#2b712b")
+                            self._save_current_album_state()
+                            return
+            except Exception as e:
+                print(f"Error restoring embedded cover: {e}")
+
+        # Otherwise, if we have active online sources, fetch the best online match
+        sources = []
+        if self.source_itunes_var.get():
+            sources.append("itunes")
+        if self.source_deezer_var.get():
+            sources.append("deezer")
+        if self.source_musicbrainz_var.get():
+            sources.append("musicbrainz")
+
+        if sources:
+            artist = self.form_entries["album_artist"].get().strip()
+            album_title = self.form_entries["album"].get().strip()
+            title = self.form_entries["series"].get().strip() or album_title
+
+            self.cover_status_lbl.configure(text="🔍 Suche Cover online...", text_color="orange")
+            self.update()
+
+            def fetch():
+                cover_url = CoverDownloader.search_cover_url(artist, album_title, title, sources=sources)
+                if cover_url:
+                    img_bytes = CoverDownloader.download_image(cover_url)
+                    if img_bytes:
+                        def apply():
+                            self.cover_bytes = img_bytes
+                            self._display_cover_image(img_bytes)
+                            self.cover_status_lbl.configure(text="Cover online geladen", text_color="#2b712b")
+                            self._save_current_album_state()
+                        self.after(0, apply)
+                        return
+                def fail():
+                    self.cover_bytes = None
+                    self.current_ctk_image = None
+                    self.cover_img_label.configure(text="Kein Cover geladen", image="")
+                    self.cover_status_lbl.configure(text="Cover-Suche erfolglos", text_color="#7a2b2b")
+                    self._save_current_album_state()
+                self.after(0, fail)
+
+            threading.Thread(target=fetch, daemon=True).start()
+        else:
+            # Clear cover if no sources checked
+            self.cover_bytes = None
+            self.current_ctk_image = None
+            self.cover_img_label.configure(text="Kein Cover geladen", image="")
+            self.cover_status_lbl.configure(text="Keine Quelle ausgewählt", text_color="#7a2b2b")
+            self._save_current_album_state()
 
     # ================= EVENT HANDLERS & LOGIC =================
 
@@ -802,6 +934,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         orig_tracks = album_data.get("tracks", [])
         t0 = orig_tracks[0] if orig_tracks else {}
 
+        # If cover_bytes is not set in state, but file has cover and embedded source is active, load it
+        if not self.cover_bytes and album_data.get("has_embedded_cover") and self.source_embedded_var.get():
+            try:
+                from mutagen.mp3 import MP3
+                audio = MP3(t0["filepath"])
+                if audio.tags:
+                    for key in audio.tags.keys():
+                        if key.startswith("APIC"):
+                            self.cover_bytes = audio.tags[key].data
+                            state["cover_bytes"] = self.cover_bytes
+                            state["cover_status"] = "Originales eingebettetes Cover"
+                            state["cover_status_color"] = "#2b712b"
+                            break
+            except Exception as e:
+                print(f"Error loading embedded cover: {e}")
+
         orig_tags = {
             "album_artist": t0.get("album_artist") or "",
             "album": t0.get("album") or "",
@@ -997,7 +1145,24 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 cover_status = "Cover-Suche erfolglos"
                 cover_color = "#7a2b2b"
 
-                if self.cover_var.get() and not album["has_embedded_cover"]:
+                use_embedded = self.source_embedded_var.get() and album["has_embedded_cover"]
+
+                if use_embedded:
+                    try:
+                        from mutagen.mp3 import MP3
+                        t0 = album["tracks"][0]
+                        audio = MP3(t0["filepath"])
+                        if audio.tags:
+                            for key in audio.tags.keys():
+                                if key.startswith("APIC"):
+                                    cover_bytes = audio.tags[key].data
+                                    cover_status = "Originales eingebettetes Cover"
+                                    cover_color = "#2b712b"
+                                    break
+                    except Exception as e:
+                        print(f"Error loading embedded cover in analysis: {e}")
+
+                if not cover_bytes and self.cover_var.get():
                     sources = []
                     if self.source_itunes_var.get():
                         sources.append("itunes")
@@ -1006,11 +1171,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     if self.source_musicbrainz_var.get():
                         sources.append("musicbrainz")
 
-                    cover_url = CoverDownloader.search_cover_url(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
-                    if cover_url:
-                        cover_bytes = CoverDownloader.download_image(cover_url)
-                        cover_status = "Cover geladen"
-                        cover_color = "#2b712b"
+                    if sources:
+                        cover_url = CoverDownloader.search_cover_url(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
+                        if cover_url:
+                            cover_bytes = CoverDownloader.download_image(cover_url)
+                            cover_status = "Cover geladen"
+                            cover_color = "#2b712b"
 
                 if not cover_bytes:
                     local_cover = self._find_local_cover(folder_path)
