@@ -485,13 +485,18 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not paths:
             return
 
-        dropped_path = Path(paths[0])
-        if dropped_path.is_file():
-            target = dropped_path.parent
-        elif dropped_path.is_dir():
-            target = dropped_path
+        if len(paths) > 1:
+            # Multi-drop: use the parent directory of the items
+            first_path = Path(paths[0])
+            target = first_path.parent
         else:
-            return
+            dropped_path = Path(paths[0])
+            if dropped_path.is_file():
+                target = dropped_path.parent
+            elif dropped_path.is_dir():
+                target = dropped_path
+            else:
+                return
 
         self.target_dir = str(target)
         self.folder_lbl.configure(text=str(target))
