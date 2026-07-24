@@ -563,9 +563,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not raw_data:
             return
 
-        # Check if it is a web URL
-        url = raw_data.strip("{}").strip()
-        if url.startswith("http://") or url.startswith("https://"):
+        # Extract URL using regex to handle complex drag data formats (e.g. wrapped in braces or HTML)
+        import re
+        url_match = re.search(r'(https?://[^\s{}"]+)', raw_data)
+        if url_match:
+            url = url_match.group(1)
             self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
             self.loading_lbl.configure(text="⏳ Lade Cover aus Web...", text_color="#1f538d")
             self.update()
@@ -610,8 +612,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             return
 
         album = self.scan_results[self.current_album_idx]
-        folder_path = album["folder_path"]
-        state = self.album_states.get(folder_path, {})
+        state_key = album["tracks"][0]["filepath"] if album.get("flat_mode") else album["folder_path"]
+        state = self.album_states.get(state_key, {})
         orig_tracks = album.get("tracks", [])
         t0 = orig_tracks[0] if orig_tracks else {}
 
@@ -694,8 +696,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if reset or not hasattr(self, "album_states") or self.album_states is None:
             self.album_states = {}
         for album in self.scan_results:
-            folder_path = album["folder_path"]
-            if folder_path in self.album_states:
+            state_key = album["tracks"][0]["filepath"] if album.get("flat_mode") else album["folder_path"]
+            if state_key in self.album_states:
                 continue
             orig_tracks = album["tracks"]
 
@@ -754,7 +756,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     "track_number": track_num_val
                 })
 
-            self.album_states[folder_path] = {
+            self.album_states[state_key] = {
                 "metadata": None,
                 "form_data": form_data,
                 "track_rows": track_rows,
@@ -875,7 +877,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not self.scan_results or self.current_album_idx not in range(len(self.scan_results)):
             return
 
-        folder_path = self.scan_results[self.current_album_idx]["folder_path"]
+        album = self.scan_results[self.current_album_idx]
+        state_key = album["tracks"][0]["filepath"] if album.get("flat_mode") else album["folder_path"]
         form_data = {k: ent.get() for k, ent in self.form_entries.items()}
 
         track_data = []
@@ -898,7 +901,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "track_number": num
             })
 
-        self.album_states[folder_path] = {
+        self.album_states[state_key] = {
             "metadata": self.current_metadata,
             "form_data": form_data,
             "track_rows": track_data,
@@ -912,11 +915,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not self.scan_results or idx not in range(len(self.scan_results)):
             return False
 
-        folder_path = self.scan_results[idx]["folder_path"]
-        if folder_path not in self.album_states:
+        album_data = self.scan_results[idx]
+        state_key = album_data["tracks"][0]["filepath"] if album_data.get("flat_mode") else album_data["folder_path"]
+        if state_key not in self.album_states:
             return False
 
-        state = self.album_states[folder_path]
+        state = self.album_states[state_key]
         self._clear_editor()
 
         self.current_metadata = state.get("metadata")
