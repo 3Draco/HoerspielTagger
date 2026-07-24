@@ -485,18 +485,25 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not paths:
             return
 
+        resolved_paths = []
+        for p in paths:
+            path_obj = Path(p).resolve()
+            if path_obj.exists():
+                if path_obj.is_file():
+                    resolved_paths.append(path_obj.parent)
+                else:
+                    resolved_paths.append(path_obj)
+
+        if not resolved_paths:
+            return
+
+        first_path = resolved_paths[0]
         if len(paths) > 1:
-            # Multi-drop: use the parent directory of the items
-            first_path = Path(paths[0])
             target = first_path.parent
+            self.dragged_paths = {str(rp) for rp in resolved_paths}
         else:
-            dropped_path = Path(paths[0])
-            if dropped_path.is_file():
-                target = dropped_path.parent
-            elif dropped_path.is_dir():
-                target = dropped_path
-            else:
-                return
+            target = first_path
+            self.dragged_paths = {str(first_path)}
 
         self.target_dir = str(target)
         self.folder_lbl.configure(text=str(target))
@@ -508,6 +515,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     def _browse_folder(self):
         folder = filedialog.askdirectory()
         if folder:
+            self.dragged_paths = None
             self.target_dir = folder
             self.folder_lbl.configure(text=folder)
             self.scan_btn.configure(state="normal")
@@ -621,7 +629,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.scan_textbox.insert("0.0", "Scanne Ordner Struktur...\n")
 
         try:
-            self.scan_results = AudioScanner.scan_directory(self.target_dir)
+            results = AudioScanner.scan_directory(self.target_dir)
+            if hasattr(self, "dragged_paths") and self.dragged_paths:
+                results = [r for r in results if str(Path(r["folder_path"]).resolve()) in self.dragged_paths]
+            self.scan_results = results
+
             if not self.scan_results:
                 self.scan_textbox.insert(tk.END, "Keine MP3-Dateien gefunden.")
                 self.analyze_btn.configure(state="disabled")
