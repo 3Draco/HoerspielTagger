@@ -1623,7 +1623,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.content_tabview.set("Scannen und Ordnerstruktur")
 
     def _apply_metadata(self):
-        if not self.scan_results or not self.current_metadata:
+        if not self.scan_results:
             return
 
         album = self.scan_results[self.current_album_idx]
@@ -1845,9 +1845,15 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         
                         merged_file_path = str(merged_out)
                         
-                        # Determine pure episode title (without '04 - ' prefix) for Plex
-                        episode_title = self.current_metadata.episode_title if (self.current_metadata and self.current_metadata.episode_title) else (album_name.split(" - ", 1)[-1] if " - " in album_name else album_name)
-                        episode_num = self.current_metadata.series_part if (self.current_metadata and self.current_metadata.series_part) else 1
+                        # Determine pure episode title (without '04 - ' prefix) for Plex from UI form
+                        episode_title = self.form_entries["episode_title"].get().strip()
+                        if not episode_title:
+                            episode_title = self.current_metadata.episode_title if (self.current_metadata and self.current_metadata.episode_title) else (album_name.split(" - ", 1)[-1] if " - " in album_name else album_name)
+
+                        try:
+                            episode_num = int(self.form_entries["series_part"].get().strip())
+                        except Exception:
+                            episode_num = 1
 
                         # Apply tags & embed ID3v2 CHAP/CTOC frames
                         TagWriter.write_tags(
