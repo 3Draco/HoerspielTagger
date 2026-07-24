@@ -373,20 +373,20 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Cover sources checkboxes frame
         self.sources_frame = ctk.CTkFrame(self.cover_panel, fg_color="transparent")
-        self.sources_frame.grid(row=3, column=0, padx=10, pady=5)
+        self.sources_frame.grid(row=3, column=0, padx=50, pady=5, sticky="w")
         
         self.source_itunes_var = ctk.BooleanVar(value=True)
         self.source_deezer_var = ctk.BooleanVar(value=True)
         self.source_musicbrainz_var = ctk.BooleanVar(value=True)
         
-        self.source_itunes_cb = ctk.CTkCheckBox(self.sources_frame, text="iTunes", variable=self.source_itunes_var, font=ctk.CTkFont(size=11))
-        self.source_itunes_cb.pack(side="left", padx=5)
+        self.source_itunes_cb = ctk.CTkCheckBox(self.sources_frame, text="iTunes", variable=self.source_itunes_var)
+        self.source_itunes_cb.pack(anchor="w", pady=2)
         
-        self.source_deezer_cb = ctk.CTkCheckBox(self.sources_frame, text="Deezer", variable=self.source_deezer_var, font=ctk.CTkFont(size=11))
-        self.source_deezer_cb.pack(side="left", padx=5)
+        self.source_deezer_cb = ctk.CTkCheckBox(self.sources_frame, text="Deezer", variable=self.source_deezer_var)
+        self.source_deezer_cb.pack(anchor="w", pady=2)
         
-        self.source_musicbrainz_cb = ctk.CTkCheckBox(self.sources_frame, text="MusicBrainz", variable=self.source_musicbrainz_var, font=ctk.CTkFont(size=11))
-        self.source_musicbrainz_cb.pack(side="left", padx=5)
+        self.source_musicbrainz_cb = ctk.CTkCheckBox(self.sources_frame, text="MusicBrainz", variable=self.source_musicbrainz_var)
+        self.source_musicbrainz_cb.pack(anchor="w", pady=2)
 
         self.crop_cover_btn = ctk.CTkButton(self.cover_panel, text="✂ Cover zuschneiden...", command=self._open_crop_dialog, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.crop_cover_btn.grid(row=4, column=0, padx=20, pady=4, sticky="ew")
