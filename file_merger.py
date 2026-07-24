@@ -70,3 +70,60 @@ class FileMerger:
             # Clean up list file
             if list_file_path.exists():
                 list_file_path.unlink()
+
+    @staticmethod
+    def verify_merged_file(input_paths: List[str], output_path: str) -> None:
+        """
+        Verifies that the merged file was created correctly:
+        - Checks if output file exists.
+        - Checks that the output file size is greater than 0.
+        - Checks that the audio duration is within a reasonable threshold (e.g., +/- 4 seconds)
+          of the sum of the input files' durations.
+        """
+        from mutagen.mp3 import MP3
+        from pathlib import Path
+
+        out_path = Path(output_path).resolve()
+        if not out_path.exists():
+            raise RuntimeError(f"Zusammengefügte Datei existiert nicht: {output_path}")
+
+        out_size = out_path.stat().st_size
+        if out_size == 0:
+            raise RuntimeError("Zusammengefügte Datei ist leer (0 Bytes).")
+
+        # Sum up input sizes and durations
+        total_input_duration = 0.0
+        total_input_size = 0
+        for p in input_paths:
+            path_obj = Path(p).resolve()
+            if path_obj.exists():
+                total_input_size += path_obj.stat().st_size
+                try:
+                    audio = MP3(str(path_obj))
+                    if hasattr(audio, "info") and audio.info:
+                        total_input_duration += audio.info.length
+                except Exception:
+                    pass
+
+        # Read output duration
+        try:
+            out_audio = MP3(str(out_path))
+            out_duration = out_audio.info.length if (hasattr(out_audio, "info") and out_audio.info) else 0.0
+        except Exception as e:
+            raise RuntimeError(f"Zusammengefügte Datei konnte nicht als MP3 gelesen werden: {e}")
+
+        # Check size threshold (at least 80% of inputs size)
+        if out_size < total_input_size * 0.80:
+            raise RuntimeError(
+                f"Die zusammengefügte Datei ist verdächtig klein: "
+                f"{out_size / (1024*1024):.2f} MB vs. erwartet {total_input_size / (1024*1024):.2f} MB"
+            )
+
+        # Check duration difference
+        if total_input_duration > 0 and out_duration > 0:
+            diff = abs(out_duration - total_input_duration)
+            if diff > 4.0: # Margin of 4 seconds
+                raise RuntimeError(
+                    f"Die Dauer der zusammengefügten Datei weicht ab: "
+                    f"{out_duration:.2f}s vs. erwartet {total_input_duration:.2f}s (Diff: {diff:.2f}s)"
+                )

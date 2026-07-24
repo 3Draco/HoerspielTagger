@@ -168,6 +168,9 @@ def run_cli(target_dir: str, dry_run: bool, merge: bool):
                     # Lossless merge
                     FileMerger.merge_files(new_file_paths, str(merged_out))
                     
+                    # Verify integrity
+                    FileMerger.verify_merged_file(new_file_paths, str(merged_out))
+                    
                     # Tag merged file: TIT2 = PURE episode_title ONLY! TRCK = episode_num!
                     TagWriter.write_tags(
                         filepath=str(merged_out),

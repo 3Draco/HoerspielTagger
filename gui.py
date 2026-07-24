@@ -1494,6 +1494,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
                         # Lossless FFmpeg merge
                         FileMerger.merge_files(sorted_paths, str(merged_out))
+                        
+                        # Verify integrity
+                        FileMerger.verify_merged_file(sorted_paths, str(merged_out))
+                        
                         merged_file_path = str(merged_out)
                         
                         # Determine pure episode title (without '04 - ' prefix) for Plex
