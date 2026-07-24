@@ -108,7 +108,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "target_dir": self.target_dir,
                 "source_itunes": self.source_itunes_var.get(),
                 "source_deezer": self.source_deezer_var.get(),
-                "source_musicbrainz": self.source_musicbrainz_var.get()
+                "source_musicbrainz": self.source_musicbrainz_var.get(),
+                "flat_episodes": self.flat_episodes_var.get()
             }
             import json
             state_file = Path(__file__).parent / "window_state.json"
@@ -135,7 +136,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         # ================= LEFT SIDEBAR =================
         self.sidebar = ctk.CTkFrame(self, width=280, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.sidebar.grid_rowconfigure(19, weight=1)
+        self.sidebar.grid_rowconfigure(20, weight=1)
 
         # Title / Logo
         logo_path = Path(__file__).parent / "logo.png"
@@ -225,18 +226,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.cover_cb = ctk.CTkCheckBox(self.sidebar, text="Cover laden (wenn fehlt)", variable=self.cover_var)
         self.cover_cb.grid(row=18, column=0, padx=20, pady=2, sticky="w")
 
+        self.flat_episodes_var = ctk.BooleanVar(value=False)
+        self.flat_episodes_cb = ctk.CTkCheckBox(self.sidebar, text="💿 Jede MP3 als eigene Folge", variable=self.flat_episodes_var, command=self._scan_folder)
+        self.flat_episodes_cb.grid(row=19, column=0, padx=20, pady=2, sticky="w")
+
         # Actions
         self.scan_btn = ctk.CTkButton(self.sidebar, text="Ordner neu scannen", command=self._scan_folder, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.scan_btn.grid(row=20, column=0, padx=20, pady=4, sticky="ew")
+        self.scan_btn.grid(row=21, column=0, padx=20, pady=4, sticky="ew")
 
         self.analyze_btn = ctk.CTkButton(self.sidebar, text="LLM-Analyse starten", command=self._start_analysis, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.analyze_btn.grid(row=21, column=0, padx=20, pady=4, sticky="ew")
+        self.analyze_btn.grid(row=22, column=0, padx=20, pady=4, sticky="ew")
 
         self.clear_cache_btn = ctk.CTkButton(self.sidebar, text="🧹 Cache leeren", command=self._clear_cache, fg_color="#2d88ad", hover_color="#1e5e78")
-        self.clear_cache_btn.grid(row=22, column=0, padx=20, pady=4, sticky="ew")
+        self.clear_cache_btn.grid(row=23, column=0, padx=20, pady=4, sticky="ew")
 
         self.splitter_btn = ctk.CTkButton(self.sidebar, text="✂ MP3 nach Kapiteln trennen...", command=self._open_splitter_dialog, fg_color="#1f538d", hover_color="#143960")
-        self.splitter_btn.grid(row=23, column=0, padx=20, pady=(4, 15), sticky="ew")
+        self.splitter_btn.grid(row=24, column=0, padx=20, pady=(4, 15), sticky="ew")
 
 
         # ================= MAIN AREA =================
@@ -397,8 +402,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.manual_cover_btn = ctk.CTkButton(self.cover_panel, text="Cover aus Datei laden...", command=self._load_manual_cover, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.manual_cover_btn.grid(row=6, column=0, padx=20, pady=4, sticky="ew")
 
+        self.google_search_btn = ctk.CTkButton(self.cover_panel, text="🌐 Google Bildersuche...", command=self._open_google_cover_search, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
+        self.google_search_btn.grid(row=7, column=0, padx=20, pady=4, sticky="ew")
+
         self.apply_btn = ctk.CTkButton(self.cover_panel, text="Speichern & Umbenennen", command=self._apply_metadata, state="disabled", fg_color="#1f538d", hover_color="#143960")
-        self.apply_btn.grid(row=7, column=0, padx=20, pady=(15, 20), sticky="ew")
+        self.apply_btn.grid(row=8, column=0, padx=20, pady=(15, 20), sticky="ew")
 
 
     def _create_form_row(self, row_idx: int, label_text: str, id3_tag: str, hint_text: str, key: str):
@@ -449,6 +457,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.source_itunes_var.set(self.loaded_settings.get("source_itunes", True))
         self.source_deezer_var.set(self.loaded_settings.get("source_deezer", True))
         self.source_musicbrainz_var.set(self.loaded_settings.get("source_musicbrainz", True))
+
+        # Load flat mode setting
+        self.flat_episodes_var.set(self.loaded_settings.get("flat_episodes", False))
 
         # Handle enabling/disabling checkbox states dynamically based on the loaded merge option
         self._on_merge_toggle()
@@ -657,6 +668,25 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             results = AudioScanner.scan_directory(self.target_dir)
             if hasattr(self, "dragged_paths") and self.dragged_paths:
                 results = [r for r in results if str(Path(r["folder_path"]).resolve()) in self.dragged_paths]
+
+            # If flat mode is active, treat each MP3 as a separate episode
+            if self.flat_episodes_var.get():
+                flat_results = []
+                for album in results:
+                    for track in album["tracks"]:
+                        track_name_no_ext = Path(track["filename"]).stem
+                        flat_results.append({
+                            "folder_path": album["folder_path"],
+                            "folder_name": track_name_no_ext,
+                            "relative_folder_path": album["relative_folder_path"],
+                            "tracks": [track],
+                            "has_embedded_cover": track["has_cover"],
+                            "has_chapters": track.get("has_chapters", False),
+                            "flat_mode": True,
+                            "original_flat_filename": track["filename"]
+                        })
+                results = flat_results
+
             self.scan_results = results
 
             if not self.scan_results:
@@ -815,6 +845,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.apply_btn.configure(state="normal")
             self.manual_cover_btn.configure(state="normal")
             self.chooser_cover_btn.configure(state="normal")
+            self.google_search_btn.configure(state="normal")
 
         self._update_live_preview()
         return True
@@ -863,6 +894,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.manual_cover_btn.configure(state="disabled")
         self.chooser_cover_btn.configure(state="disabled")
         self.crop_cover_btn.configure(state="disabled")
+        self.google_search_btn.configure(state="disabled")
 
     def _open_cover_chooser(self):
         """Opens modal dialog for choosing between multiple candidate album covers from active sources."""
@@ -1489,11 +1521,33 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _run_write_operation(self, album, album_artist, album_name, genre, year, changes):
         folder_path = Path(album["folder_path"])
+        is_flat = album.get("flat_mode", False)
+
+        # 0. In flat mode, determine and create target folder immediately
+        if is_flat:
+            target_ep_folder_name = album_name if (self.rename_folder_var.get() and album_name) else album["folder_name"]
+            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                target_ep_folder_name = target_ep_folder_name.replace(char, "_")
+
+            if self.parent_series_var.get() and album_artist:
+                clean_series_name = album_artist
+                for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                    clean_series_name = clean_series_name.replace(char, "_")
+                final_folder_path = folder_path.parent / clean_series_name / target_ep_folder_name
+            elif self.rename_folder_var.get():
+                final_folder_path = folder_path.parent / target_ep_folder_name
+            else:
+                final_folder_path = folder_path / target_ep_folder_name
+
+            final_folder_path.mkdir(parents=True, exist_ok=True)
+            write_dest_dir = final_folder_path
+        else:
+            write_dest_dir = folder_path
         
         try:
             # 1. Save Cover to folder if downloaded/provided
             if self.cover_bytes:
-                cover_file = folder_path / "cover.jpg"
+                cover_file = write_dest_dir / "cover.jpg"
                 with open(cover_file, "wb") as f:
                     f.write(self.cover_bytes)
 
@@ -1515,14 +1569,14 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     cover_bytes=self.cover_bytes
                 )
 
-                # Rename the file on disk
-                target_path = orig_path.parent / change["new_filename"]
+                # Rename the file on disk (moves it to the destination directory)
+                target_path = write_dest_dir / change["new_filename"]
                 if orig_path != target_path:
                     # Prevent overwriting
                     counter = 1
                     test_path = target_path
                     while test_path.exists() and test_path != orig_path:
-                        test_path = orig_path.parent / f"{target_path.stem} ({counter}){target_path.suffix}"
+                        test_path = write_dest_dir / f"{target_path.stem} ({counter}){target_path.suffix}"
                         counter += 1
                     target_path = test_path
                     
@@ -1540,11 +1594,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                         merged_filename = merged_filename.replace(char, "_")
                         
-                    merged_out = folder_path / merged_filename
+                    merged_out = write_dest_dir / merged_filename
                     
                     # Sort file paths strictly by assigned track_number order
                     sorted_changes = sorted(changes, key=lambda x: x["track_number"])
-                    sorted_paths = [str(folder_path / c["new_filename"]) for c in sorted_changes]
+                    sorted_paths = [str(write_dest_dir / c["new_filename"]) for c in sorted_changes]
 
                     try:
                         # Build chapter timing data from assigned tracks
@@ -1585,7 +1639,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                                     except Exception as e:
                                         print(f"Error deleting original track {p.name}: {e}")
                         elif self.move_tracks_var.get():
-                            tracks_dir = folder_path / "Tracks"
+                            tracks_dir = write_dest_dir / "Tracks"
                             try:
                                 tracks_dir.mkdir(parents=True, exist_ok=True)
                                 for path_str in new_file_paths:
@@ -1599,41 +1653,45 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         self.after(0, lambda err=merge_err: messagebox.showwarning("ffmpeg Merge Fehler", f"Zusammenführung der MP3s schlug fehl: {err}"))
 
             # 4. Folder Renaming and Parent Series Folder Organization
-            target_ep_folder_name = album_name if self.rename_folder_var.get() and album_name else folder_path.name
-            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                target_ep_folder_name = target_ep_folder_name.replace(char, "_")
-
-            if self.parent_series_var.get() and album_artist:
-                clean_series_name = album_artist
+            if not is_flat:
+                target_ep_folder_name = album_name if self.rename_folder_var.get() and album_name else folder_path.name
                 for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                    clean_series_name = clean_series_name.replace(char, "_")
+                    target_ep_folder_name = target_ep_folder_name.replace(char, "_")
 
-                # If current parent folder is not already the series folder
-                if folder_path.parent.name.lower() != clean_series_name.lower():
-                    series_dir = folder_path.parent / clean_series_name
-                    series_dir.mkdir(parents=True, exist_ok=True)
-                    final_folder_path = series_dir / target_ep_folder_name
-                else:
+                if self.parent_series_var.get() and album_artist:
+                    clean_series_name = album_artist
+                    for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                        clean_series_name = clean_series_name.replace(char, "_")
+
+                    # If current parent folder is not already the series folder
+                    if folder_path.parent.name.lower() != clean_series_name.lower():
+                        series_dir = folder_path.parent / clean_series_name
+                        series_dir.mkdir(parents=True, exist_ok=True)
+                        final_folder_path = series_dir / target_ep_folder_name
+                    else:
+                        final_folder_path = folder_path.parent / target_ep_folder_name
+                elif self.rename_folder_var.get():
                     final_folder_path = folder_path.parent / target_ep_folder_name
-            elif self.rename_folder_var.get():
-                final_folder_path = folder_path.parent / target_ep_folder_name
-            else:
-                final_folder_path = folder_path
+                else:
+                    final_folder_path = folder_path
 
-            if folder_path != final_folder_path and not final_folder_path.exists():
-                try:
-                    os.rename(folder_path, final_folder_path)
-                    album["folder_path"] = str(final_folder_path)
-                    # Update key in album_states if folder renamed
-                    old_key = str(folder_path)
-                    new_key = str(final_folder_path)
-                    if old_key in self.album_states:
-                        self.album_states[new_key] = self.album_states.pop(old_key)
-                    if self.target_dir and Path(self.target_dir).resolve() == Path(old_key).resolve():
-                        self.target_dir = new_key
-                        self.folder_lbl.configure(text=new_key)
-                except Exception as folder_err:
-                    print(f"Folder move warning: {folder_err}")
+                if folder_path != final_folder_path and not final_folder_path.exists():
+                    try:
+                        os.rename(folder_path, final_folder_path)
+                        album["folder_path"] = str(final_folder_path)
+                        # Update key in album_states if folder renamed
+                        old_key = str(folder_path)
+                        new_key = str(final_folder_path)
+                        if old_key in self.album_states:
+                            self.album_states[new_key] = self.album_states.pop(old_key)
+                        if self.target_dir and Path(self.target_dir).resolve() == Path(old_key).resolve():
+                            self.target_dir = new_key
+                            self.folder_lbl.configure(text=new_key)
+                    except Exception as folder_err:
+                        print(f"Folder move warning: {folder_err}")
+            else:
+                # In flat mode, update album's folder path to the newly created subfolder
+                album["folder_path"] = str(write_dest_dir)
 
             # Operations completed
             def success_notify():
@@ -1709,6 +1767,21 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, lambda: messagebox.showerror("Schreibfehler", f"Fehler beim Schreiben der Änderungen: {write_err}"))
         finally:
             self.after(0, lambda: self.apply_btn.configure(state="normal", text="Speichern & Umbenennen"))
+
+    def _open_google_cover_search(self):
+        """Opens a web browser with a Google Images query for the current audio drama cover."""
+        import urllib.parse
+        import webbrowser
+        
+        artist = self.form_entries["album_artist"].get().strip()
+        album = self.form_entries["album"].get().strip()
+        
+        query = f"{artist} {album} Cover".strip()
+        if not query or query == "Cover":
+            query = "Hörspiel Cover"
+            
+        search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}&tbm=isch"
+        webbrowser.open(search_url)
 
 if __name__ == "__main__":
     app = HoerspielTaggerGUI()
