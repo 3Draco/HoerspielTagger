@@ -12,6 +12,10 @@ This program analyzes, cleans, tags (ID3v2.3), and losslessly merges or splits a
 
 ![image](img/logo.png)
 
+## Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied. Use this tool at your own risk. The developer is not responsible for any accidental data loss, overwritten files, or corruption of audio files. Always make a backup of your media library before processing files.
+
 --------------------------------------------------------
 
 If you enjoy my work and want to support this project, you can buy me a coffee!
