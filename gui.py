@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -30,31 +31,67 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         except Exception as e:
             self.TkdndVersion = None
 
-        self.title("📻 HoerspielTag - AI-Powered Audio Drama Tagger")
+        # Determine base directory (supporting PyInstaller bundles)
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+            resource_dir = Path(getattr(sys, '_MEIPASS', base_dir))
+        else:
+            base_dir = Path(__file__).parent
+            resource_dir = base_dir
+
+        self.title("Hörspiel Tagger - AI-Powered Audio Drama Tagger")
         
-        # Load last settings and window geometry if exists
+        # Set window icon if available
+        icon_path = resource_dir / "img" / "icon.ico"
+        if not icon_path.exists():
+            icon_path = base_dir / "img" / "icon.ico"
+        if icon_path.exists():
+            try:
+                self.iconbitmap(str(icon_path))
+            except Exception:
+                pass
+        
+        # Load last settings and window geometry if exists (Encrypted per machine)
         try:
-            import json
-            state_file = Path(__file__).parent / "window_state.json"
+            import json, hashlib, uuid, platform, base64
+            from cryptography.fernet import Fernet
+
+            def _get_fernet_key():
+                # Hardware-bound encryption key unique to this machine
+                node = uuid.getnode()
+                system = platform.node()
+                raw_id = f"HoerspielTagger:{node}:{system}".encode('utf-8')
+                key_32 = hashlib.sha256(raw_id).digest()
+                return base64.urlsafe_b64encode(key_32)
+
+            state_file = base_dir / "app_config.dat"
+            old_file = base_dir / "window_state.json"
             self.loaded_settings = {}
+
             if state_file.exists():
-                with open(state_file, "r") as f:
+                with open(state_file, "rb") as f:
+                    encrypted_data = f.read()
+                fernet = Fernet(_get_fernet_key())
+                decrypted_bytes = fernet.decrypt(encrypted_data)
+                self.loaded_settings = json.loads(decrypted_bytes.decode('utf-8'))
+            elif old_file.exists():
+                with open(old_file, "r", encoding="utf-8") as f:
                     self.loaded_settings = json.load(f)
-                    geom = self.loaded_settings.get("geometry")
-                    if geom:
-                        parts = geom.split("+")
-                        if len(parts) == 3:
-                            x = int(parts[1])
-                            y = int(parts[2])
-                            screen_w = self.winfo_screenwidth()
-                            screen_h = self.winfo_screenheight()
-                            # Ensure it's not fully offscreen
-                            if -100 < x < screen_w - 100 and -100 < y < screen_h - 100:
-                                self.geometry(geom)
-                            else:
-                                self.geometry("1200x800")
-                        else:
-                            self.geometry("1200x800")
+
+            geom = self.loaded_settings.get("geometry")
+            if geom:
+                parts = geom.split("+")
+                if len(parts) == 3:
+                    x = int(parts[1])
+                    y = int(parts[2])
+                    screen_w = self.winfo_screenwidth()
+                    screen_h = self.winfo_screenheight()
+                    if -100 < x < screen_w - 100 and -100 < y < screen_h - 100:
+                        self.geometry(geom)
+                    else:
+                        self.geometry("1200x800")
+                else:
+                    self.geometry("1200x800")
             else:
                 self.geometry("1200x800")
         except Exception:
@@ -90,7 +127,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         """Ensures immediate and clean application termination on single click."""
         self.is_processing = False
         
-        # Save settings and window geometry
+        # Save settings and window geometry (Encrypted per machine)
         try:
             geom = self.geometry()
             settings = {
@@ -112,10 +149,28 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "source_musicbrainz": self.source_musicbrainz_var.get(),
                 "flat_episodes": self.flat_episodes_var.get()
             }
-            import json
-            state_file = Path(__file__).parent / "window_state.json"
-            with open(state_file, "w") as f:
-                json.dump(settings, f)
+            import json, hashlib, uuid, platform, base64
+            from cryptography.fernet import Fernet
+
+            def _get_fernet_key():
+                node = uuid.getnode()
+                system = platform.node()
+                raw_id = f"HoerspielTagger:{node}:{system}".encode('utf-8')
+                key_32 = hashlib.sha256(raw_id).digest()
+                return base64.urlsafe_b64encode(key_32)
+
+            if getattr(sys, 'frozen', False):
+                base_dir = Path(sys.executable).parent
+            else:
+                base_dir = Path(__file__).parent
+
+            state_file = base_dir / "app_config.dat"
+            data_bytes = json.dumps(settings).encode('utf-8')
+            fernet = Fernet(_get_fernet_key())
+            encrypted_data = fernet.encrypt(data_bytes)
+
+            with open(state_file, "wb") as f:
+                f.write(encrypted_data)
         except Exception:
             pass
 
@@ -140,26 +195,26 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.sidebar.grid_rowconfigure(20, weight=1)
 
         # Title / Logo
-        logo_path = Path(__file__).parent / "logo.png"
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+            resource_dir = Path(getattr(sys, '_MEIPASS', base_dir))
+        else:
+            base_dir = Path(__file__).parent
+            resource_dir = base_dir
+
+        logo_path = resource_dir / "img" / "logo.png"
+        if not logo_path.exists():
+            logo_path = base_dir / "img" / "logo.png"
+
         if logo_path.exists():
             try:
                 logo_img = Image.open(logo_path)
-                self.logo_ctk = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(38, 38))
-                self.title_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-                self.title_frame.grid(row=0, column=0, padx=20, pady=(15, 10), sticky="ew")
-                self.title_frame.grid_columnconfigure(1, weight=1)
-                
-                self.logo_lbl = ctk.CTkLabel(self.title_frame, image=self.logo_ctk, text="")
-                self.logo_lbl.grid(row=0, column=0, padx=(0, 10))
-                
-                self.title_lbl = ctk.CTkLabel(self.title_frame, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
-                self.title_lbl.grid(row=0, column=1, sticky="w")
+                # Aspect ratio of logo is 2400:1309 (~ 1.83:1)
+                self.logo_ctk = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(240, 131))
+                self.logo_lbl = ctk.CTkLabel(self.sidebar, image=self.logo_ctk, text="")
+                self.logo_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
             except Exception:
-                self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
-                self.title_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
-        else:
-            self.title_lbl = ctk.CTkLabel(self.sidebar, text="HoerspielTag", font=ctk.CTkFont(size=20, weight="bold"))
-            self.title_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
+                pass
 
         # Folder Selection
         self.folder_btn = ctk.CTkButton(self.sidebar, text="Ordner wählen...", command=self._browse_folder, fg_color="#1f538d")
@@ -1794,8 +1849,14 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 with open(cover_file, "wb") as f:
                     f.write(self.cover_bytes)
 
-            # 2. Write Tags and Rename Files
+            # 2. Write Tags and Rename Files (If merging, isolate original tracks into 'Tracks' subfolder first)
             new_file_paths = []
+            if self.merge_var.get():
+                target_tracks_dir = write_dest_dir / "Tracks"
+                target_tracks_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                target_tracks_dir = write_dest_dir
+
             for change in changes:
                 orig_path = Path(change["filepath"])
                 
@@ -1812,14 +1873,14 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     cover_bytes=self.cover_bytes
                 )
 
-                # Rename the file on disk (moves it to the destination directory)
-                target_path = write_dest_dir / change["new_filename"]
+                # Rename/Move the file on disk into target_tracks_dir
+                target_path = target_tracks_dir / change["new_filename"]
                 if orig_path != target_path:
                     # Prevent overwriting
                     counter = 1
                     test_path = target_path
                     while test_path.exists() and test_path != orig_path:
-                        test_path = write_dest_dir / f"{target_path.stem} ({counter}){target_path.suffix}"
+                        test_path = target_tracks_dir / f"{target_path.stem} ({counter}){target_path.suffix}"
                         counter += 1
                     target_path = test_path
                     
@@ -1841,17 +1902,15 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     
                     # Sort file paths strictly by assigned track_number order
                     sorted_changes = sorted(changes, key=lambda x: x["track_number"])
-                    sorted_paths = [str(write_dest_dir / c["new_filename"]) for c in sorted_changes]
+                    sorted_paths = [str(target_tracks_dir / c["new_filename"]) for c in sorted_changes]
 
                     try:
                         # Build chapter timing data from assigned tracks
                         chapter_data = ChapterManager.build_chapter_data(sorted_changes)
 
-                        # Lossless FFmpeg merge
-                        FileMerger.merge_files(sorted_paths, str(merged_out))
-                        
-                        # Verify integrity
-                        FileMerger.verify_merged_file(sorted_paths, str(merged_out))
+                        # FFmpeg merge with automatic fallback verification
+                        merge_status = FileMerger.merge_files_with_fallback(sorted_paths, str(merged_out))
+                        print(f"[Merge Status] {merge_status}")
                         
                         merged_file_path = str(merged_out)
                         
@@ -1878,26 +1937,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                             cover_bytes=self.cover_bytes,
                             chapters=chapter_data
                         )
-                        # Clean up original tracks based on selected option
+                        # Clean up original tracks directory if delete option is active
                         if self.delete_tracks_var.get():
-                            for path_str in new_file_paths:
-                                p = Path(path_str)
-                                if p.exists() and p.is_file() and p.resolve() != Path(merged_file_path).resolve():
-                                    try:
-                                        p.unlink()
-                                    except Exception as e:
-                                        print(f"Error deleting original track {p.name}: {e}")
-                        elif self.move_tracks_var.get():
-                            tracks_dir = write_dest_dir / "Tracks"
+                            import shutil
                             try:
-                                tracks_dir.mkdir(parents=True, exist_ok=True)
-                                for path_str in new_file_paths:
-                                    p = Path(path_str)
-                                    if p.exists() and p.is_file() and p.resolve() != Path(merged_file_path).resolve():
-                                        target_p = tracks_dir / p.name
-                                        os.rename(p, target_p)
+                                shutil.rmtree(target_tracks_dir, ignore_errors=True)
                             except Exception as e:
-                                print(f"Error moving original tracks: {e}")
+                                print(f"Error removing Tracks directory: {e}")
                     except Exception as merge_err:
                         self.after(0, lambda err=merge_err: messagebox.showwarning("ffmpeg Merge Fehler", f"Zusammenführung der MP3s schlug fehl: {err}"))
 

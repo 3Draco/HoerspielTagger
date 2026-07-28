@@ -1,8 +1,8 @@
 @echo off
-title HoerspielTag
+title Hörspiel Tagger
 cd /d "%~dp0"
 echo ==================================================
-echo   HoerspielTag - AI-Powered Audio Drama Tagger
+echo   Hörspiel Tagger - AI-Powered Audio Drama Tagger
 echo ==================================================
 echo.
 python --version >nul 2>&1
@@ -15,10 +15,10 @@ if %errorlevel% neq 0 (
 echo Ueberpruefe Python-Abhaengigkeiten...
 pip install -r requirements.txt
 echo.
-echo Starte HoerspielTag GUI...
+echo Starte Hörspiel Tagger GUI...
 python main.py
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] HoerspielTag wurde unerwartet beendet.
+    echo [ERROR] Hörspiel Tagger wurde unerwartet beendet.
     pause
 )

@@ -136,7 +136,7 @@ class CoverDownloader:
 
     @classmethod
     def _search_musicbrainz(cls, queries, clean_artist, clean_title, candidates, seen_urls):
-        headers = {"User-Agent": "HoerspielTag/1.0.0 ( draco@synology.local )"}
+        headers = {"User-Agent": "HoerspielTagger/1.0.0 ( https://github.com/3Draco/HoerspielTagger )"}
         if not queries:
             return
         query = queries[0]

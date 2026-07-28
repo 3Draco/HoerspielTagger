@@ -21,7 +21,7 @@ def run_split(mp3_path: str, output_dir: Optional[str] = None):
     out_directory = Path(output_dir).resolve() if output_dir else source_file.parent / f"{source_file.stem}_Kapitel"
     
     print("==================================================")
-    print("✂ HoerspielTag - Lossless Chapter Splitter")
+    print("✂ Hörspiel Tagger - Lossless Chapter Splitter")
     print(f"Datei: {source_file.name}")
     print(f"Ziel:  {out_directory}")
     print("==================================================")
@@ -38,7 +38,7 @@ def run_split(mp3_path: str, output_dir: Optional[str] = None):
 def run_cli(target_dir: str, dry_run: bool, merge: bool):
     """Executes the metadata tagging pipeline via the Command Line Interface."""
     print("==================================================")
-    print("📻 HoerspielTag - AI-Powered Audio Drama Tagger")
+    print("📻 Hörspiel Tagger - AI-Powered Audio Drama Tagger")
     print(f"Modus: {'[DRY-RUN (Simulationslauf)]' if dry_run else '[LIVE (Schreibmodus)]'}")
     print("==================================================")
 
@@ -165,11 +165,9 @@ def run_cli(target_dir: str, dry_run: bool, merge: bool):
                     # Build chapter timing data
                     chapter_data = ChapterManager.build_chapter_data(changes)
 
-                    # Lossless merge
-                    FileMerger.merge_files(new_file_paths, str(merged_out))
-                    
-                    # Verify integrity
-                    FileMerger.verify_merged_file(new_file_paths, str(merged_out))
+                    # FFmpeg merge with automatic fallback verification
+                    merge_status = FileMerger.merge_files_with_fallback(new_file_paths, str(merged_out))
+                    print(f"[Merge Status] {merge_status}")
                     
                     # Tag merged file: TIT2 = PURE episode_title ONLY! TRCK = episode_num!
                     TagWriter.write_tags(
