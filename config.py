@@ -17,9 +17,9 @@ LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "meta-llama-3-8b-instruct")
 # Merge settings
 MERGE_THRESHOLD = int(os.getenv("MERGE_THRESHOLD", "10"))
 
-# Special headers/body if we detect ESAB Nexus URL
+# Special headers/body if we detect custom LibreChat/Agent URLs or agent_ model IDs
 def get_llm_client_kwargs() -> dict:
-    """Returns extra headers and body arguments for compatibility with ESAB Nexus / LibreChat agents."""
+    """Returns extra headers and body arguments for compatibility with LibreChat agent endpoints."""
     kwargs = {
         "base_url": LLM_API_BASE_URL,
         "api_key": LLM_API_KEY
@@ -28,18 +28,16 @@ def get_llm_client_kwargs() -> dict:
     extra_headers = {}
     extra_body = {}
     
-    # If the URL looks like ESAB Nexus API, add agent headers and body
-    if "nexus.ebxai.esab.com" in LLM_API_BASE_URL.lower():
-        # Check if the model ID starts with agent_
-        if LLM_MODEL_ID.startswith("agent_"):
-            extra_headers = {
-                "X-Agent-ID": LLM_MODEL_ID,
-                "Agent-Id": LLM_MODEL_ID,
-                "X-Agent-Id": LLM_MODEL_ID
-            }
-            extra_body = {
-                "agent_id": LLM_MODEL_ID
-            }
+    # If the URL or model ID looks like a custom Agent API, add agent headers and body
+    if "/api/agents/" in LLM_API_BASE_URL.lower() or LLM_MODEL_ID.startswith("agent_"):
+        extra_headers = {
+            "X-Agent-ID": LLM_MODEL_ID,
+            "Agent-Id": LLM_MODEL_ID,
+            "X-Agent-Id": LLM_MODEL_ID
+        }
+        extra_body = {
+            "agent_id": LLM_MODEL_ID
+        }
             
     return {
         "client_init": kwargs,
