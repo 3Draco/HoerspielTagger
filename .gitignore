@@ -43,6 +43,10 @@ folder.jpg
 folder.png
 *.log
 
+# Local development helper scripts
+run.bat
+*.bat
+
 # VS Code & IDEs
 .vscode/
 .idea/
