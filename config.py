@@ -17,9 +17,9 @@ LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "meta-llama-3-8b-instruct")
 # Merge settings
 MERGE_THRESHOLD = int(os.getenv("MERGE_THRESHOLD", "10"))
 
-# Special headers/body if we detect custom LibreChat/Agent URLs or agent_ model IDs
+# Special headers/body if we detect custom Agent URLs or agent_ model IDs
 def get_llm_client_kwargs() -> dict:
-    """Returns extra headers and body arguments for compatibility with LibreChat agent endpoints."""
+    """Returns extra headers and body arguments for compatibility with custom agent endpoints."""
     kwargs = {
         "base_url": LLM_API_BASE_URL,
         "api_key": LLM_API_KEY

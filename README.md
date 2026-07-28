@@ -4,7 +4,7 @@ This program analyzes, cleans, tags (ID3v2.3), and losslessly merges or splits a
 
 ## Features
 
-- **AI Metadata Cleaning:** Automatically identifies series, episode numbers, album names, years, genres, and track titles via LM Studio, OpenAI, or LibreChat.
+- **AI Metadata Cleaning:** Automatically identifies series, episode numbers, album names, years, genres, and track titles via LM Studio or OpenAI.
 - **Cover Art Manager:** High-resolution cover search (iTunes, MusicBrainz) with an integrated interactive cropping tool.
 - **Lossless Merge & Split:** Losslessly merges MP3 tracks using FFmpeg (with embedded ID3v2.3 chapter marks) or splits audio dramas back into individual tracks by chapters.
 - **Encrypted Settings:** Automatically saves window positions and form configurations bound to your hardware key (`app_config.dat`).
