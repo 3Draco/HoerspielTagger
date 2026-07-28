@@ -65,7 +65,7 @@ class CoverDownloader:
             for query in queries:
                 if not query.strip():
                     continue
-                params = {"term": query.strip(), "media": media, "limit": 4}
+                params = {"term": query.strip(), "country": "DE", "media": media, "limit": 6}
                 if entity:
                     params["entity"] = entity
                 try:

@@ -3,7 +3,7 @@ import re
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from openai import OpenAI
-from config import LLM_MODEL_ID, get_llm_client_kwargs
+from config import LLM_MODEL_ID, get_llm_client_kwargs, DEFAULT_SYSTEM_PROMPT, LLM_SYSTEM_PROMPT
 from encoding_utils import fix_encoding_corruptions, sanitize_metadata_obj
 
 # Pydantic models for strict validation
@@ -49,10 +49,20 @@ class AlbumMetadata(BaseModel):
             self.tracks = self.chapters
         elif self.tracks and not self.chapters:
             self.chapters = self.tracks
-        
-        # Ensure album format is zero-padded '{series_part:02d} - {episode_title}'
+
+        # Sanitize episode_title if it was mistakenly parsed as just digits (e.g. "08")
+        if self.episode_title and re.match(r"^\d+$", self.episode_title.strip()):
+            self.episode_title = None
+
+        # Ensure album format is zero-padded '{series_part:02d} - {episode_title}' if both are present
         if self.series_part is not None and self.episode_title:
             self.album = f"{self.series_part:02d} - {self.episode_title}"
+        elif self.series_part is not None and self.album and not self.episode_title:
+            # If album has title like "08 - Das Grauen von Blackwood Castle", extract pure episode_title
+            match = re.match(r"^(?:[A-Za-z]+)?\d+\s*[-_\s:]\s*(.+)$", self.album)
+            if match:
+                self.episode_title = match.group(1).strip()
+                self.album = f"{self.series_part:02d} - {self.episode_title}"
 
 class LLMClient:
     """Handles communication with the LLM to get cleaned metadata and file names."""
@@ -63,7 +73,7 @@ class LLMClient:
         self.extra_headers = kwargs["extra_headers"]
         self.extra_body = kwargs["extra_body"]
 
-    def analyze_album(self, folder_name: str, tracks: List[Dict[str, Any]]) -> AlbumMetadata:
+    def analyze_album(self, folder_name: str, tracks: List[Dict[str, Any]], custom_prompt: Optional[str] = None) -> AlbumMetadata:
         """Sends folder name and tracks context to the LLM and returns validated AlbumMetadata."""
         
         # Prepare context
@@ -83,35 +93,7 @@ class LLMClient:
             ]
         }
 
-        system_prompt = (
-            "You are a professional metadata tagging assistant for media servers like Plex.\n"
-            "Your task is to analyze audio drama (Hörspiel) folder names and track information, and return a clean, correct, unified metadata structure.\n"
-            "Identify the series name (e.g., 'Fünf Freunde', 'Die drei ???', 'TKKG'), the episode number, release year, genre (usually 'Hörspiel'), and clean track titles (remove episode prefixes, track numbers, and rip tags from track titles).\n\n"
-            "CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
-            "- The metadata and track titles are in German.\n"
-            "- ALWAYS preserve German umlauts (ä, ö, ü, Ä, Ö, Ü, ß) and special characters directly in UTF-8 format.\n"
-            "- NEVER convert German umlauts or special characters into question marks (?), ASCII replacements (ae, oe, ue), or unicode escape sequences (\\uXXXX).\n"
-            "- Note that '???' in series names like 'Die drei ???' is literal punctuation and MUST NOT be used as a replacement character for letters in track titles.\n\n"
-            "Strict Output Format:\n"
-            "You must return ONLY a single, valid JSON object matching this schema:\n"
-            "{\n"
-            '  "album_artist": "Series name (e.g., Fünf Freunde)",\n'
-            '  "album": "Episode number and clean episode title (e.g., 63 - Der Stein des Pharao)",\n'
-            '  "series": "Series name",\n'
-            '  "series_part": 63,\n'
-            '  "year": 2005,\n'
-            '  "genre": "Hörspiel",\n'
-            '  "tracks": [\n'
-            "    {\n"
-            '      "original_filename": "original_filename.mp3",\n'
-            '      "clean_title": "Clean Track Title",\n'
-            '      "track_number": 8,\n'
-            '      "new_filename": "08 - Clean Track Title.mp3"\n'
-            "    }\n"
-            "  ]\n"
-            "}\n"
-            "Do not include any explanation, preamble, or markdown formatting (like ```json). Return raw JSON."
-        )
+        system_prompt = custom_prompt or getattr(config, 'LLM_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT) or DEFAULT_SYSTEM_PROMPT
 
         user_content = f"Please analyze this folder context and generate the clean metadata:\n\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
 

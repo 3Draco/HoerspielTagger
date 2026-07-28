@@ -9,39 +9,49 @@ class CoverChooserDialog(ctk.CTkToplevel):
     """Modal dialog displaying candidate album covers from iTunes search."""
     def __init__(self, parent, candidates: List[Dict[str, str]], on_select_cover):
         super().__init__(parent)
+        self.parent = parent
         self.title("🖼 Cover-Varianten auswählen")
         self.geometry("720x560")
         self.minsize(620, 460)
+
+        # Force window to front
+        self.attributes("-topmost", True)
+        self.lift()
+        self.focus_force()
         self.grab_set()
 
         # Center relative to parent
         self.update_idletasks()
         if parent:
-            parent_x = parent.winfo_rootx()
-            parent_y = parent.winfo_rooty()
-            parent_w = parent.winfo_width()
-            parent_h = parent.winfo_height()
-            win_w = 720
-            win_h = 560
-            x = parent_x + (parent_w - win_w) // 2
-            y = parent_y + (parent_h - win_h) // 2
-            self.geometry(f"{win_w}x{win_h}+{x}+{y}")
+            try:
+                parent_x = parent.winfo_rootx()
+                parent_y = parent.winfo_rooty()
+                parent_w = parent.winfo_width()
+                parent_h = parent.winfo_height()
+                win_w = 720
+                win_h = 560
+                x = max(0, parent_x + (parent_w - win_w) // 2)
+                y = max(0, parent_y + (parent_h - win_h) // 2)
+                self.geometry(f"{win_w}x{win_h}+{x}+{y}")
+            except Exception:
+                pass
 
         self.on_select_cover = on_select_cover
         self.candidates = candidates
         self.keep_image_refs = []
 
         self._build_ui()
+        self.after(200, lambda: self.attributes("-topmost", False))
 
     def _build_ui(self):
-        title_lbl = ctk.CTkLabel(self, text="Gefundene Cover-Varianten auf iTunes", font=ctk.CTkFont(size=16, weight="bold"))
+        title_lbl = ctk.CTkLabel(self, text="Gefundene Cover-Varianten auf online Portalen", font=ctk.CTkFont(size=16, weight="bold"))
         title_lbl.pack(pady=10)
 
         scroll = ctk.CTkScrollableFrame(self)
         scroll.pack(expand=True, fill="both", padx=15, pady=10)
 
         if not self.candidates:
-            ctk.CTkLabel(scroll, text="Keine Cover-Varianten auf iTunes gefunden.", text_color="gray").pack(pady=20)
+            ctk.CTkLabel(scroll, text="Keine Cover-Varianten gefunden.", text_color="gray").pack(pady=20)
             return
 
         for idx, cand in enumerate(self.candidates):
@@ -82,7 +92,13 @@ class CoverChooserDialog(ctk.CTkToplevel):
             pass
 
     def _select_candidate(self, url: str):
-        raw_bytes = CoverDownloader.download_image(url)
-        if raw_bytes and self.on_select_cover:
-            self.on_select_cover(raw_bytes)
-        self.destroy()
+        def do_download():
+            raw_bytes = CoverDownloader.download_image(url)
+            def apply():
+                cb = self.on_select_cover
+                self.destroy()
+                if raw_bytes and cb:
+                    cb(raw_bytes)
+            self.after(0, apply)
+
+        threading.Thread(target=do_download, daemon=True).start()

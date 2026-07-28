@@ -19,6 +19,11 @@ from file_merger import FileMerger
 from chapter_manager import ChapterManager
 from cover_chooser_dialog import CoverChooserDialog
 from cover_crop_dialog import CoverCropDialog
+from api_settings_dialog import ApiSettingsDialog
+from sidebar_frame import SidebarFrame
+from metadata_form_frame import MetadataFormFrame
+from cover_panel_frame import CoverPanelFrame
+from summary_dialog import SummaryDialog
 import config
 
 class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
@@ -39,7 +44,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             base_dir = Path(__file__).parent
             resource_dir = base_dir
 
-        self.title("Hörspiel Tagger - AI-Powered Audio Drama Tagger")
+        self.title(f"Hörspiel Tagger {config.APP_VERSION} - AI-Powered Audio Drama Tagger")
         
         # Set window icon if available
         icon_path = resource_dir / "img" / "icon.ico"
@@ -112,11 +117,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.is_processing = False
 
         # Dynamic storage for form inputs
-        self.form_entries: Dict[str, ctk.CTkEntry] = {}
-        self.current_tag_entries: Dict[str, ctk.CTkEntry] = {}
         self.track_rows: List[Dict[str, Any]] = []
         self.album_states: Dict[str, Dict[str, Any]] = {}
         self.current_ctk_image: Optional[ctk.CTkImage] = None
+        self.keep_ctk_images: List[ctk.CTkImage] = []
+        self._cover_fetch_token: int = 0
 
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
         self._build_ui()
@@ -132,9 +137,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             geom = self.geometry()
             settings = {
                 "geometry": geom,
-                "api_url": self.api_url_ent.get(),
-                "api_key": self.api_key_ent.get(),
-                "model_id": self.model_ent.get(),
+                "api_url": config.LLM_API_BASE_URL,
+                "api_key": config.LLM_API_KEY,
+                "model_id": config.LLM_MODEL_ID,
+                "system_prompt": config.LLM_SYSTEM_PROMPT,
                 "dry_run": self.dry_run_var.get(),
                 "merge": self.merge_var.get(),
                 "move_tracks": self.move_tracks_var.get(),
@@ -182,6 +188,69 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         import os
         os._exit(0)
 
+    # Backward compatible properties mapping to component sub-frames
+    @property
+    def dry_run_var(self): return self.sidebar.dry_run_var
+    @property
+    def merge_var(self): return self.sidebar.merge_var
+    @property
+    def move_tracks_var(self): return self.sidebar.move_tracks_var
+    @property
+    def delete_tracks_var(self): return self.sidebar.delete_tracks_var
+    @property
+    def rename_folder_var(self): return self.sidebar.rename_folder_var
+    @property
+    def parent_series_var(self): return self.sidebar.parent_series_var
+    @property
+    def cover_var(self): return self.sidebar.cover_var
+    @property
+    def flat_episodes_var(self): return self.sidebar.flat_episodes_var
+
+    @property
+    def folder_lbl(self): return self.sidebar.folder_lbl
+    @property
+    def move_tracks_cb(self): return self.sidebar.move_tracks_cb
+    @property
+    def delete_tracks_cb(self): return self.sidebar.delete_tracks_cb
+    @property
+    def rename_folder_cb(self): return self.sidebar.rename_folder_cb
+    @property
+    def scan_btn(self): return self.sidebar.scan_btn
+    @property
+    def analyze_btn(self): return self.sidebar.analyze_btn
+
+    @property
+    def form_entries(self): return self.form_scroll.form_entries
+    @property
+    def current_tag_entries(self): return self.form_scroll.current_tag_entries
+    @property
+    def tracks_container(self): return self.form_scroll.tracks_container
+    @property
+    def preview_textbox(self): return self.form_scroll.preview_textbox
+
+    @property
+    def cover_img_label(self): return self.cover_panel.cover_img_label
+    @property
+    def cover_status_lbl(self): return self.cover_panel.cover_status_lbl
+    @property
+    def source_embedded_var(self): return self.cover_panel.source_embedded_var
+    @property
+    def source_itunes_var(self): return self.cover_panel.source_itunes_var
+    @property
+    def source_deezer_var(self): return self.cover_panel.source_deezer_var
+    @property
+    def source_musicbrainz_var(self): return self.cover_panel.source_musicbrainz_var
+    @property
+    def crop_cover_btn(self): return self.cover_panel.crop_cover_btn
+    @property
+    def chooser_cover_btn(self): return self.cover_panel.chooser_cover_btn
+    @property
+    def manual_cover_btn(self): return self.cover_panel.manual_cover_btn
+    @property
+    def google_search_btn(self): return self.cover_panel.google_search_btn
+    @property
+    def apply_btn(self): return self.cover_panel.apply_btn
+
     def _build_ui(self):
         # Configure grid layout (2 rows, 2 columns)
         self.grid_rowconfigure(0, weight=1)
@@ -190,115 +259,21 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.grid_columnconfigure(1, weight=1)  # Right work panel
 
         # ================= LEFT SIDEBAR =================
-        self.sidebar = ctk.CTkFrame(self, width=280, corner_radius=0)
+        self.sidebar = SidebarFrame(
+            self,
+            on_browse_folder=self._browse_folder,
+            on_open_api_settings=self._open_api_settings_dialog,
+            on_merge_toggle=self._on_merge_toggle,
+            on_move_tracks_toggle=self._on_move_tracks_toggle,
+            on_delete_tracks_toggle=self._on_delete_tracks_toggle,
+            on_update_preview=self._update_live_preview,
+            on_flat_episodes_toggle=self._on_flat_episodes_toggle,
+            on_scan_folder=self._scan_folder,
+            on_start_analysis=self._start_analysis,
+            on_clear_cache=self._clear_cache,
+            on_open_splitter=self._open_splitter_dialog
+        )
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.sidebar.grid_rowconfigure(20, weight=1)
-
-        # Title / Logo
-        if getattr(sys, 'frozen', False):
-            base_dir = Path(sys.executable).parent
-            resource_dir = Path(getattr(sys, '_MEIPASS', base_dir))
-        else:
-            base_dir = Path(__file__).parent
-            resource_dir = base_dir
-
-        logo_path = resource_dir / "img" / "logo.png"
-        if not logo_path.exists():
-            logo_path = base_dir / "img" / "logo.png"
-
-        if logo_path.exists():
-            try:
-                logo_img = Image.open(logo_path)
-                # Aspect ratio of logo is 2400:1309 (~ 1.83:1)
-                self.logo_ctk = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(240, 131))
-                self.logo_lbl = ctk.CTkLabel(self.sidebar, image=self.logo_ctk, text="")
-                self.logo_lbl.grid(row=0, column=0, padx=20, pady=(15, 10))
-            except Exception:
-                pass
-
-        # Folder Selection
-        self.folder_btn = ctk.CTkButton(self.sidebar, text="Ordner wählen...", command=self._browse_folder, fg_color="#1f538d")
-        self.folder_btn.grid(row=1, column=0, padx=20, pady=5, sticky="ew")
-        
-        self.folder_lbl = ctk.CTkLabel(self.sidebar, text="Kein Ordner ausgewählt", wraplength=240, text_color="gray")
-        self.folder_lbl.grid(row=2, column=0, padx=20, pady=(0, 10))
-
-        # API settings separator
-        self.api_lbl = ctk.CTkLabel(self.sidebar, text="API Einstellungen", font=ctk.CTkFont(size=14, weight="bold"))
-        self.api_lbl.grid(row=3, column=0, padx=20, pady=(5, 2), sticky="w")
-
-        # API Base URL
-        self.api_url_lbl = ctk.CTkLabel(self.sidebar, text="Base URL:")
-        self.api_url_lbl.grid(row=4, column=0, padx=20, pady=0, sticky="w")
-        self.api_url_ent = ctk.CTkEntry(self.sidebar)
-        self.api_url_ent.grid(row=5, column=0, padx=20, pady=(0, 5), sticky="ew")
-
-        # API Key
-        self.api_key_lbl = ctk.CTkLabel(self.sidebar, text="API Key:")
-        self.api_key_lbl.grid(row=6, column=0, padx=20, pady=0, sticky="w")
-        self.api_key_ent = ctk.CTkEntry(self.sidebar, show="*")
-        self.api_key_ent.grid(row=7, column=0, padx=20, pady=(0, 5), sticky="ew")
-
-        # Model ID
-        self.model_lbl = ctk.CTkLabel(self.sidebar, text="Modell / Agent ID:")
-        self.model_lbl.grid(row=8, column=0, padx=20, pady=0, sticky="w")
-        self.model_ent = ctk.CTkEntry(self.sidebar)
-        self.model_ent.grid(row=9, column=0, padx=20, pady=(0, 5), sticky="ew")
-
-        # Connection status test button (Moved llm_status_lbl out of here)
-        self.test_conn_btn = ctk.CTkButton(self.sidebar, text="🔍 Verbindung testen", height=22, command=self._test_llm_connection, fg_color="#333333", hover_color="#444444")
-        self.test_conn_btn.grid(row=10, column=0, padx=20, pady=(0, 10), sticky="ew")
-
-        # Options
-        self.opt_lbl = ctk.CTkLabel(self.sidebar, text="Optionen", font=ctk.CTkFont(size=14, weight="bold"))
-        self.opt_lbl.grid(row=11, column=0, padx=20, pady=(5, 2), sticky="w")
-
-        self.dry_run_var = ctk.BooleanVar(value=True)
-        self.dry_run_cb = ctk.CTkCheckBox(self.sidebar, text="Dry-Run (Testlauf)", variable=self.dry_run_var)
-        self.dry_run_cb.grid(row=12, column=0, padx=20, pady=2, sticky="w")
-
-        self.merge_var = ctk.BooleanVar(value=False)
-        self.merge_cb = ctk.CTkCheckBox(self.sidebar, text="Verlustfrei zusammenfügen & ID3-Kapitel", variable=self.merge_var, command=self._on_merge_toggle)
-        self.merge_cb.grid(row=13, column=0, padx=20, pady=2, sticky="w")
-
-        # Cleanup options (indented, disabled by default)
-        self.move_tracks_var = ctk.BooleanVar(value=False)
-        self.move_tracks_cb = ctk.CTkCheckBox(self.sidebar, text="  ↳ Originale in 'Tracks' verschieben", variable=self.move_tracks_var, command=self._on_move_tracks_toggle, state="disabled")
-        self.move_tracks_cb.grid(row=14, column=0, padx=20, pady=2, sticky="w")
-
-        self.delete_tracks_var = ctk.BooleanVar(value=False)
-        self.delete_tracks_cb = ctk.CTkCheckBox(self.sidebar, text="  ↳ Originale löschen", variable=self.delete_tracks_var, command=self._on_delete_tracks_toggle, state="disabled")
-        self.delete_tracks_cb.grid(row=15, column=0, padx=20, pady=2, sticky="w")
-
-        self.rename_folder_var = ctk.BooleanVar(value=True)
-        self.rename_folder_cb = ctk.CTkCheckBox(self.sidebar, text="📁 Episoden-Ordner umbenennen", variable=self.rename_folder_var, command=self._update_live_preview)
-        self.rename_folder_cb.grid(row=16, column=0, padx=20, pady=2, sticky="w")
-
-        self.parent_series_var = ctk.BooleanVar(value=True)
-        self.parent_series_cb = ctk.CTkCheckBox(self.sidebar, text="🏛 Serien-Ordner darüber anlegen", variable=self.parent_series_var, command=self._update_live_preview)
-        self.parent_series_cb.grid(row=17, column=0, padx=20, pady=2, sticky="w")
-
-        self.cover_var = ctk.BooleanVar(value=True)
-        self.cover_cb = ctk.CTkCheckBox(self.sidebar, text="Cover laden (wenn fehlt)", variable=self.cover_var)
-        self.cover_cb.grid(row=18, column=0, padx=20, pady=2, sticky="w")
-
-        self.flat_episodes_var = ctk.BooleanVar(value=False)
-        self.flat_episodes_cb = ctk.CTkCheckBox(self.sidebar, text="💿 Jede MP3 als eigene Folge", variable=self.flat_episodes_var, command=self._on_flat_episodes_toggle)
-        self.flat_episodes_cb.grid(row=19, column=0, padx=20, pady=2, sticky="w")
-
-        # Actions
-        self.scan_btn = ctk.CTkButton(self.sidebar, text="Ordner neu scannen", command=self._scan_folder, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.scan_btn.grid(row=21, column=0, padx=20, pady=4, sticky="ew")
-
-        self.analyze_btn = ctk.CTkButton(self.sidebar, text="LLM-Analyse starten", command=self._start_analysis, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.analyze_btn.grid(row=22, column=0, padx=20, pady=4, sticky="ew")
-
-        self.clear_cache_btn = ctk.CTkButton(self.sidebar, text="🧹 Cache leeren", command=self._clear_cache, fg_color="#2d88ad", hover_color="#1e5e78")
-        self.clear_cache_btn.grid(row=23, column=0, padx=20, pady=4, sticky="ew")
-
-        self.splitter_btn = ctk.CTkButton(self.sidebar, text="✂ MP3 nach Kapiteln trennen...", command=self._open_splitter_dialog, fg_color="#1f538d", hover_color="#143960")
-        self.splitter_btn.grid(row=24, column=0, padx=20, pady=(4, 15), sticky="ew")
-
 
         # ================= MAIN AREA =================
         self.main_frame = ctk.CTkFrame(self, corner_radius=0)
@@ -376,97 +351,20 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.tab_edit.grid_columnconfigure(1, weight=0) # Cover Preview
 
         # Metadata Form Panel (Left of Tab 2)
-        self.form_scroll = ctk.CTkScrollableFrame(self.tab_edit)
+        self.form_scroll = MetadataFormFrame(self.tab_edit, on_update_live_preview=self._update_live_preview)
         self.form_scroll.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.form_scroll.grid_columnconfigure(1, weight=1) # Column 1: Current MP3 Tag (Vorher)
-        self.form_scroll.grid_columnconfigure(2, weight=1) # Column 2: LLM Proposal (Nachher)
-
-        # Form Table Column Headers
-        ctk.CTkLabel(self.form_scroll, text="ID3 Feld", font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=0, padx=10, pady=(5, 8), sticky="w")
-        ctk.CTkLabel(self.form_scroll, text="📄 Aktuell in MP3-Dateien (Vorher)", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray").grid(row=0, column=1, padx=10, pady=(5, 8), sticky="w")
-        ctk.CTkLabel(self.form_scroll, text="🤖 LLM-Vorschlag / Bearbeitbar (Nachher)", font=ctk.CTkFont(size=12, weight="bold"), text_color="#1f538d").grid(row=0, column=2, padx=10, pady=(5, 8), sticky="w")
-
-        # Editor Fields with explicit ID3 Frame tags, Current Values (Vorher), and Hints
-        self._create_form_row(1, "Album-Interpret (Serie)", "TPE2 / albumartist", "Reiner Serienname (z. B. 'Fünf Freunde')", "album_artist")
-        self._create_form_row(2, "Album (Folgentitel)", "TALB / album", "Format: '03 - Fünf Freunde und das Burgverlies'", "album")
-        self._create_form_row(3, "Reiner Folgentitel", "TIT2 / title", "Folgentitel ohne Nummerierung für Plex", "episode_title")
-        self._create_form_row(4, "Serie / Haupt-Interpret", "TPE1 / artist", "Reiner Serienname (z. B. 'Fünf Freunde')", "series")
-        self._create_form_row(5, "Folgennummer / Track-Nr.", "TRCK / tracknumber", "Nummer der Folge (z. B. 3)", "series_part")
-        self._create_form_row(6, "Erscheinungsjahr", "TDRC / year", "Veröffentlichungsjahr (z. B. 1978)", "year")
-        self._create_form_row(7, "Genre", "TCON / genre", "Festes Genre für Hörspiele", "genre")
-
-        # Separator for Tracks
-        self.tracks_title = ctk.CTkLabel(self.form_scroll, text="Kapitel / Tracks", font=ctk.CTkFont(size=14, weight="bold"))
-        self.tracks_title.grid(row=8, column=0, columnspan=3, padx=10, pady=(20, 10), sticky="w")
-
-        # Frame to hold dynamic track rows
-        self.tracks_container = ctk.CTkFrame(self.form_scroll, fg_color="transparent")
-        self.tracks_container.grid(row=9, column=0, columnspan=3, sticky="nsew", padx=5, pady=5)
-        self.tracks_container.grid_columnconfigure(1, weight=3) # clean title entry
-
-        # Live Preview Card (Result after Rename/Merge)
-        self.preview_card = ctk.CTkFrame(self.form_scroll, corner_radius=8)
-        self.preview_card.grid(row=10, column=0, columnspan=3, sticky="nsew", padx=5, pady=(15, 10))
-
-        preview_header = ctk.CTkLabel(self.preview_card, text="🔍 Live-Vorschau (Ziel-Ordner & MP3-Dateinamen nach Umbenennen):", font=ctk.CTkFont(size=13, weight="bold"))
-        preview_header.pack(anchor="w", padx=12, pady=(10, 4))
-
-
-
-        self.preview_textbox = ctk.CTkTextbox(self.preview_card, height=130, font=ctk.CTkFont(family="Consolas", size=11))
-        self.preview_textbox.pack(fill="both", expand=True, padx=12, pady=(4, 10))
 
         # Cover & Action Panel (Right of Tab 2)
-        self.cover_panel = ctk.CTkFrame(self.tab_edit, width=360)
+        self.cover_panel = CoverPanelFrame(
+            self.tab_edit,
+            on_cover_source_changed=self._on_cover_source_changed,
+            on_open_crop_dialog=self._open_crop_dialog,
+            on_open_cover_chooser=self._open_cover_chooser,
+            on_load_manual_cover=self._load_manual_cover,
+            on_google_cover_search=self._open_google_cover_search,
+            on_apply_metadata=self._apply_metadata
+        )
         self.cover_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        self.cover_panel.grid_rowconfigure(1, weight=1)
-        self.cover_panel.grid_columnconfigure(0, weight=1)
-
-        self.cover_title = ctk.CTkLabel(self.cover_panel, text="Cover Art", font=ctk.CTkFont(size=14, weight="bold"))
-        self.cover_title.grid(row=0, column=0, padx=10, pady=10)
-
-        # Cover Image Canvas / Label
-        self.cover_img_label = ctk.CTkLabel(self.cover_panel, text="Kein Cover geladen", fg_color="#2b2b2b", width=300, height=300)
-        self.cover_img_label.grid(row=1, column=0, padx=15, pady=10, sticky="n")
-
-        self.cover_status_lbl = ctk.CTkLabel(self.cover_panel, text="", text_color="gray")
-        self.cover_status_lbl.grid(row=2, column=0, padx=10, pady=5)
-
-        # Cover sources checkboxes frame
-        self.sources_frame = ctk.CTkFrame(self.cover_panel, fg_color="transparent")
-        self.sources_frame.grid(row=3, column=0, padx=50, pady=5, sticky="w")
-        
-        self.source_embedded_var = ctk.BooleanVar(value=True)
-        self.source_itunes_var = ctk.BooleanVar(value=True)
-        self.source_deezer_var = ctk.BooleanVar(value=True)
-        self.source_musicbrainz_var = ctk.BooleanVar(value=True)
-        
-        self.source_embedded_cb = ctk.CTkCheckBox(self.sources_frame, text="Eingebettetes Cover", variable=self.source_embedded_var, command=self._on_cover_source_changed)
-        self.source_embedded_cb.pack(anchor="w", pady=2)
-        
-        self.source_itunes_cb = ctk.CTkCheckBox(self.sources_frame, text="iTunes", variable=self.source_itunes_var, command=self._on_cover_source_changed)
-        self.source_itunes_cb.pack(anchor="w", pady=2)
-        
-        self.source_deezer_cb = ctk.CTkCheckBox(self.sources_frame, text="Deezer", variable=self.source_deezer_var, command=self._on_cover_source_changed)
-        self.source_deezer_cb.pack(anchor="w", pady=2)
-        
-        self.source_musicbrainz_cb = ctk.CTkCheckBox(self.sources_frame, text="MusicBrainz", variable=self.source_musicbrainz_var, command=self._on_cover_source_changed)
-        self.source_musicbrainz_cb.pack(anchor="w", pady=2)
-
-        self.crop_cover_btn = ctk.CTkButton(self.cover_panel, text="✂ Cover zuschneiden...", command=self._open_crop_dialog, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.crop_cover_btn.grid(row=4, column=0, padx=20, pady=4, sticky="ew")
-
-        self.chooser_cover_btn = ctk.CTkButton(self.cover_panel, text="🎨 Cover wählen (Varianten)...", command=self._open_cover_chooser, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.chooser_cover_btn.grid(row=5, column=0, padx=20, pady=4, sticky="ew")
-
-        self.manual_cover_btn = ctk.CTkButton(self.cover_panel, text="Cover aus Datei laden...", command=self._load_manual_cover, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.manual_cover_btn.grid(row=6, column=0, padx=20, pady=4, sticky="ew")
-
-        self.google_search_btn = ctk.CTkButton(self.cover_panel, text="🌐 Google Bildersuche...", command=self._open_google_cover_search, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
-        self.google_search_btn.grid(row=7, column=0, padx=20, pady=4, sticky="ew")
-
-        self.apply_btn = ctk.CTkButton(self.cover_panel, text="Speichern & Umbenennen", command=self._apply_metadata, state="disabled", fg_color="#1f538d", hover_color="#143960")
-        self.apply_btn.grid(row=8, column=0, padx=20, pady=(15, 20), sticky="ew")
 
 
     def _create_form_row(self, row_idx: int, label_text: str, id3_tag: str, hint_text: str, key: str):
@@ -499,10 +397,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.form_entries[key] = ent
 
     def _load_config_defaults(self):
-        # Load API settings
-        self.api_url_ent.insert(0, self.loaded_settings.get("api_url", config.LLM_API_BASE_URL))
-        self.api_key_ent.insert(0, self.loaded_settings.get("api_key", config.LLM_API_KEY))
-        self.model_ent.insert(0, self.loaded_settings.get("model_id", config.LLM_MODEL_ID))
+        # Load API settings into config module
+        config.LLM_API_BASE_URL = self.loaded_settings.get("api_url", config.LLM_API_BASE_URL)
+        config.LLM_API_KEY = self.loaded_settings.get("api_key", config.LLM_API_KEY)
+        config.LLM_MODEL_ID = self.loaded_settings.get("model_id", config.LLM_MODEL_ID)
+        config.LLM_SYSTEM_PROMPT = self.loaded_settings.get("system_prompt", config.LLM_SYSTEM_PROMPT)
 
         # Load options checkboxes
         self.dry_run_var.set(self.loaded_settings.get("dry_run", True))
@@ -538,6 +437,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         self._test_llm_connection()
 
+    def _open_api_settings_dialog(self):
+        """Opens modal for API & Prompt settings."""
+        def on_save(url, key, model, prompt):
+            self._test_llm_connection()
+        ApiSettingsDialog(self, on_save_callback=on_save)
+
     def _test_llm_connection(self):
         """Triggers asynchronous LLM connection test."""
         self.llm_status_lbl.configure(text="🟡 Verbindung wird geprüft...", text_color="orange")
@@ -545,11 +450,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _run_test_connection_thread(self):
         """Tests HTTP connection to LLM API endpoint."""
-        url = self.api_url_ent.get().strip()
+        url = config.LLM_API_BASE_URL
         try:
             import urllib.request
             # Parse host/url for ping
-            req = urllib.request.Request(url, headers={"User-Agent": "HoerspielTag"})
+            req = urllib.request.Request(url, headers={"User-Agent": "HoerspielTagger"})
             try:
                 with urllib.request.urlopen(req, timeout=4) as resp:
                     code = resp.getcode()
@@ -788,7 +693,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 def fail():
                     self.cover_bytes = None
                     self.current_ctk_image = None
-                    self.cover_img_label.configure(text="Kein Cover geladen", image="")
+                    self.cover_img_label.configure(text="Kein Cover geladen", image=None)
                     self.cover_status_lbl.configure(text="Cover-Suche erfolglos", text_color="#7a2b2b")
                     self._save_current_album_state()
                 self.after(0, fail)
@@ -798,7 +703,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             # Clear cover if no sources checked
             self.cover_bytes = None
             self.current_ctk_image = None
-            self.cover_img_label.configure(text="Kein Cover geladen", image="")
+            self.cover_img_label.configure(text="Kein Cover geladen", image=None)
             self.cover_status_lbl.configure(text="Keine Quelle ausgewählt", text_color="#7a2b2b")
             self._save_current_album_state()
 
@@ -994,6 +899,46 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.nav_prev_btn.configure(state="normal" if self.current_album_idx > 0 else "disabled")
         self.nav_next_btn.configure(state="normal" if self.current_album_idx < total - 1 else "disabled")
 
+    def _initialize_album_states(self, reset=True):
+        """Initializes default album states for scanned folders using initial MP3 ID3 tags."""
+        if reset or not self.album_states:
+            self.album_states = {}
+
+        for album in self.scan_results:
+            state_key = album["tracks"][0]["filepath"] if album.get("flat_mode") else album["folder_path"]
+            if state_key not in self.album_states or reset:
+                orig_tracks = album.get("tracks", [])
+                t0 = orig_tracks[0] if orig_tracks else {}
+
+                track_rows = []
+                for i_t, track in enumerate(orig_tracks):
+                    row_num = i_t + 1
+                    track_rows.append({
+                        "original_filename": track["filename"],
+                        "filepath": track["filepath"],
+                        "clean_title": track["title"] or Path(track["filename"]).stem,
+                        "track_number": track["track_number"] or row_num
+                    })
+
+                form_data = {
+                    "album_artist": t0.get("album_artist") or "",
+                    "album": t0.get("album") or "",
+                    "episode_title": t0.get("title") or "",
+                    "series": t0.get("artist") or "",
+                    "series_part": str(t0.get("track_number")) if t0.get("track_number") is not None else "",
+                    "year": str(t0.get("year")) if t0.get("year") is not None else "",
+                    "genre": t0.get("genre") or ""
+                }
+
+                self.album_states[state_key] = {
+                    "metadata": None,
+                    "form_data": form_data,
+                    "track_rows": track_rows,
+                    "cover_bytes": None,
+                    "cover_status": "Kein Cover geladen",
+                    "cover_status_color": "gray"
+                }
+
     def _save_current_album_state(self):
         """Saves current editor form fields, track titles, track order, and cover data for current_album_idx."""
         if not self.scan_results or self.current_album_idx not in range(len(self.scan_results)):
@@ -1104,7 +1049,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         else:
             self.current_ctk_image = None
             try:
-                self.cover_img_label.configure(text="Kein Cover geladen", image="")
+                self.cover_img_label.configure(text="Kein Cover geladen", image=None)
             except Exception:
                 pass
             self.cover_status_lbl.configure(
@@ -1152,7 +1097,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         # Clear cover safely without pyimage TclError
         self.current_ctk_image = None
         try:
-            self.cover_img_label.configure(text="Kein Cover geladen", image="")
+            self.cover_img_label.configure(text="Kein Cover geladen", image=None)
         except Exception:
             pass
         self.cover_status_lbl.configure(text="")
@@ -1188,6 +1133,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             candidates = CoverDownloader.search_cover_candidates(artist, album, title, sources=sources)
             def open_dialog():
                 def on_selected(new_bytes):
+                    self._cover_fetch_token += 1
                     self.cover_bytes = new_bytes
                     self._display_cover_image(new_bytes)
                     self.cover_status_lbl.configure(text="Cover aus Varianten gewählt", text_color="#2b712b")
@@ -1246,11 +1192,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _run_analysis_thread(self):
         try:
-            # Re-read/override API config from inputs
-            config.LLM_API_BASE_URL = self.api_url_ent.get()
-            config.LLM_API_KEY = self.api_key_ent.get()
-            config.LLM_MODEL_ID = self.model_ent.get()
-
             self.llm_client = LLMClient()
             total = len(self.scan_results)
 
@@ -1264,7 +1205,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 ))
 
                 # 1. Query LLM for this folder
-                metadata = self.llm_client.analyze_album(folder_name, album["tracks"])
+                metadata = self.llm_client.analyze_album(folder_name, album["tracks"], custom_prompt=config.LLM_SYSTEM_PROMPT)
 
                 # 2. Cover Art search for this folder
                 cover_bytes = None
@@ -1352,8 +1293,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     "genre": metadata.genre
                 }
 
-                # Save state per folder_path
-                self.album_states[folder_path] = {
+                # Save state per state_key
+                state_key = album["tracks"][0]["filepath"] if album.get("flat_mode") else album["folder_path"]
+                self.album_states[state_key] = {
                     "metadata": metadata,
                     "form_data": form_data,
                     "track_rows": track_rows,
@@ -1546,6 +1488,107 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if self.delete_tracks_var.get():
             self.move_tracks_var.set(False)
 
+    def _on_cover_source_changed(self):
+        """Immediately re-evaluates and loads cover art when any cover source checkbox is toggled in a background thread."""
+        if not self.scan_results or self.current_album_idx not in range(len(self.scan_results)):
+            return
+
+        self._cover_fetch_token += 1
+        current_token = self._cover_fetch_token
+
+        album = self.scan_results[self.current_album_idx]
+        folder_path = album["folder_path"]
+        metadata = self.current_metadata
+
+        use_embedded = self.source_embedded_var.get() and album["has_embedded_cover"]
+
+        if use_embedded:
+            cover_bytes = None
+            try:
+                from mutagen.mp3 import MP3
+                t0 = album["tracks"][0]
+                audio = MP3(t0["filepath"])
+                if audio.tags:
+                    for key in audio.tags.keys():
+                        if key.startswith("APIC"):
+                            cover_bytes = audio.tags[key].data
+                            break
+            except Exception as e:
+                print(f"Error loading embedded cover: {e}")
+
+            if cover_bytes:
+                self.cover_bytes = cover_bytes
+                self._display_cover_image(cover_bytes)
+                self.cover_status_lbl.configure(text="Originales eingebettetes Cover", text_color="#2b712b")
+                self._save_current_album_state()
+                return
+
+        # Show searching status label while thread fetches online/local cover
+        self.cover_status_lbl.configure(text="⏳ Suche Cover...", text_color="orange")
+
+        def fetch_cover_thread(token):
+            cover_bytes = None
+            cover_status = "Kein Cover geladen"
+            cover_color = "gray"
+
+            if self.cover_var.get():
+                sources = []
+                if self.source_itunes_var.get():
+                    sources.append("itunes")
+                if self.source_deezer_var.get():
+                    sources.append("deezer")
+                if self.source_musicbrainz_var.get():
+                    sources.append("musicbrainz")
+
+                if sources:
+                    artist = self.form_entries["album_artist"].get() if "album_artist" in self.form_entries else (metadata.album_artist if metadata else "")
+                    album_title = self.form_entries["album"].get() if "album" in self.form_entries else (metadata.album if metadata else "")
+                    episode_title = self.form_entries["episode_title"].get() if "episode_title" in self.form_entries else getattr(metadata, 'episode_title', None)
+
+                    if artist or album_title:
+                        cover_url = CoverDownloader.search_cover_url(artist, album_title, episode_title, sources=sources)
+                        if cover_url:
+                            cover_bytes = CoverDownloader.download_image(cover_url)
+                            cover_status = "Cover online geladen"
+                            cover_color = "#2b712b"
+
+            if not cover_bytes:
+                local_cover = self._find_local_cover(folder_path)
+                if local_cover:
+                    try:
+                        with open(local_cover, "rb") as f:
+                            cover_bytes = f.read()
+                        cover_status = f"Lokales Cover: {Path(local_cover).name}"
+                        cover_color = "gray"
+                    except Exception:
+                        pass
+
+            def apply_ui():
+                # Ignore stale thread results if user took another action in the meantime
+                if token != self._cover_fetch_token:
+                    return
+
+                self.cover_bytes = cover_bytes
+                if cover_bytes:
+                    self._display_cover_image(cover_bytes)
+                    self.cover_status_lbl.configure(text=cover_status, text_color=cover_color)
+                else:
+                    self.current_ctk_image = None
+                    try:
+                        self.cover_img_label.configure(text="Kein Cover geladen", image=None)
+                        if hasattr(self.cover_img_label, "_draw"):
+                            self.cover_img_label._draw()
+                    except Exception:
+                        pass
+                    self.cover_status_lbl.configure(text=cover_status, text_color=cover_color)
+                    self.crop_cover_btn.configure(state="disabled")
+
+                self._save_current_album_state()
+
+            self.after(0, apply_ui)
+
+        threading.Thread(target=fetch_cover_thread, args=(current_token,), daemon=True).start()
+
     def _update_live_preview(self):
         """Updates live preview of target folder name and target MP3 file names as a directory tree."""
         if not hasattr(self, "preview_textbox"):
@@ -1645,17 +1688,40 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         return None
 
     def _display_cover_image(self, img_bytes: bytes):
-        try:
-            image = Image.open(io.BytesIO(img_bytes))
-            # Resize image keeping aspect ratio
-            image.thumbnail((300, 300))
-            self.current_ctk_image = ctk.CTkImage(light_image=image, dark_image=image, size=(image.width, image.height))
-            self.cover_img_label.configure(image=self.current_ctk_image, text="")
-            self.crop_cover_btn.configure(state="normal")
-        except Exception as e:
+        if not img_bytes:
             self.current_ctk_image = None
             try:
-                self.cover_img_label.configure(image="", text="Fehler beim Rendern")
+                self.cover_img_label.configure(image=None, text="Kein Cover geladen")
+                if hasattr(self.cover_img_label, "_draw"):
+                    self.cover_img_label._draw()
+            except Exception:
+                pass
+            self.crop_cover_btn.configure(state="disabled")
+            return
+
+        try:
+            pil_img = Image.open(io.BytesIO(img_bytes))
+            # Convert CMYK, P, L or other modes to RGB/RGBA for CustomTkinter compatibility
+            if pil_img.mode not in ("RGB", "RGBA"):
+                pil_img = pil_img.convert("RGB")
+
+            pil_img = pil_img.copy()
+            pil_img.thumbnail((300, 300))
+
+            w, h = max(1, pil_img.width), max(1, pil_img.height)
+            self.current_ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(w, h))
+            self.keep_ctk_images.append(self.current_ctk_image)
+            self.cover_img_label.configure(image=self.current_ctk_image, text="")
+            if hasattr(self.cover_img_label, "_draw"):
+                self.cover_img_label._draw()
+            self.crop_cover_btn.configure(state="normal")
+        except Exception as e:
+            print(f"Error rendering cover image: {e}")
+            self.current_ctk_image = None
+            try:
+                self.cover_img_label.configure(image=None, text="Fehler beim Rendern")
+                if hasattr(self.cover_img_label, "_draw"):
+                    self.cover_img_label._draw()
             except Exception:
                 pass
             self.crop_cover_btn.configure(state="disabled")
@@ -1758,42 +1824,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             for idx, c in enumerate(changes, 1):
                 log_msgs.append(f"  {idx:02d}. [Track {c['track_number']:02d}] {c['orig_filename']}  -->  {c['new_filename']}")
 
-        # Display summary for user confirmation
-        summary_win = ctk.CTkToplevel(self)
-        summary_win.title("Bestätigung der Änderungen")
-        summary_win.geometry("720x540")
-        summary_win.grab_set()
-
-        # Center relative to parent
-        summary_win.update_idletasks()
-        parent_x = self.winfo_rootx()
-        parent_y = self.winfo_rooty()
-        parent_w = self.winfo_width()
-        parent_h = self.winfo_height()
-        win_w = 720
-        win_h = 540
-        x = parent_x + (parent_w - win_w) // 2
-        y = parent_y + (parent_h - win_h) // 2
-        summary_win.geometry(f"{win_w}x{win_h}+{x}+{y}")
-
-        tb = ctk.CTkTextbox(summary_win, font=ctk.CTkFont(family="Consolas", size=11))
-        tb.pack(expand=True, fill="both", padx=15, pady=15)
-        tb.insert("0.0", "\n".join(log_msgs))
-
-        if is_dry_run:
-            hint_lbl = ctk.CTkLabel(
-                summary_win,
-                text="💡 TESTLAUF-MODUS AKTIV: Es werden keine Dateien verändert.\nEntferne das Häkchen bei 'Dry-Run (Testlauf)' in der linken Seitenleiste, um echte Änderungen zu speichern.",
-                text_color="#e2b93b",
-                font=ctk.CTkFont(weight="bold")
-            )
-            hint_lbl.pack(padx=15, pady=(0, 10))
-
-        btn_frame = ctk.CTkFrame(summary_win)
-        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
-
         def on_confirm():
-            summary_win.destroy()
             if not is_dry_run:
                 self.apply_btn.configure(state="disabled", text="Speichere...")
                 self.progress_bar.grid(row=0, column=2, padx=10, pady=2, sticky="e")
@@ -1808,16 +1839,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             else:
                 messagebox.showinfo("Dry-Run Beendet", "Der Dry-Run wurde erfolgreich simuliert. Es wurden keine Dateien verändert.\n\nUm echte Änderungen vorzunehmen, entferne das Häkchen bei 'Dry-Run (Testlauf)' in der linken Seitenleiste.")
 
-        confirm_btn = ctk.CTkButton(
-            btn_frame,
-            text="Echte Änderungen anwenden!" if not is_dry_run else "Dry-Run simulieren",
-            command=on_confirm,
-            fg_color="#1f538d" if not is_dry_run else "#2b712b"
-        )
-        confirm_btn.pack(side="right", padx=10)
-
-        cancel_btn = ctk.CTkButton(btn_frame, text="Abbrechen", command=summary_win.destroy, fg_color="gray")
-        cancel_btn.pack(side="left", padx=10)
+        SummaryDialog(self, log_msgs=log_msgs, is_dry_run=is_dry_run, on_confirm_callback=on_confirm)
 
     def _run_write_operation(self, album, album_artist, album_name, genre, year, changes):
         folder_path = Path(album["folder_path"])
