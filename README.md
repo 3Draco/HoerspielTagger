@@ -10,6 +10,10 @@ This program analyzes, cleans, tags (ID3v2.3), and losslessly merges or splits a
 - **Encrypted Settings:** Automatically saves window positions and form configurations bound to your hardware key (`app_config.dat`).
 - **Modern GUI & CLI:** Easy-to-use CustomTkinter interface with drag-and-drop support, as well as CLI argument processing for automated workflows.
 
+## 🤖 Local AI Ready
+
+This tool works exceptionally well with **local AI models**! You can run it 100% offline and free of API costs using local LLM servers like **[LM Studio](https://lmstudio.ai/)** or any OpenAI-compatible local server. Simply point the API Base URL to your local server (e.g., `http://127.0.0.1:1234/v1`).
+
 ![image](img/logo.png)
 
 ## Disclaimer
