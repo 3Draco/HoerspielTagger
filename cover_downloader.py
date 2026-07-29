@@ -3,7 +3,7 @@ import re
 from typing import Optional, List, Dict, Any
 
 class CoverDownloader:
-    """Fetches high-resolution album cover art using iTunes, Deezer, and MusicBrainz APIs."""
+    """Fetches high-resolution album cover art and release metadata using iTunes, Deezer, MusicBrainz, and Discogs APIs."""
 
     @staticmethod
     def _clean_string(text: str) -> str:
@@ -19,10 +19,10 @@ class CoverDownloader:
     def search_cover_candidates(cls, album_artist: str, album: str, episode_title: Optional[str] = None, sources: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Searches active APIs for cover art candidates.
-        sources can contain "itunes", "deezer", "musicbrainz".
+        sources can contain "itunes", "deezer", "musicbrainz", "discogs".
         """
         if not sources:
-            sources = ["itunes", "deezer", "musicbrainz"]
+            sources = ["discogs", "itunes", "deezer", "musicbrainz"]
 
         clean_artist = cls._clean_string(album_artist)
         raw_title = episode_title or album
@@ -42,21 +42,97 @@ class CoverDownloader:
         candidates = []
         seen_urls = set()
 
-        # 1. iTunes Source
+        # 1. Discogs Source
+        if "discogs" in sources:
+            cls._search_discogs(queries, clean_artist, clean_title, candidates, seen_urls)
+
+        # 2. iTunes Source
         if "itunes" in sources:
             cls._search_itunes(queries, clean_artist, clean_title, candidates, seen_urls)
 
-        # 2. Deezer Source
+        # 3. Deezer Source
         if "deezer" in sources:
             cls._search_deezer(queries, clean_artist, clean_title, candidates, seen_urls)
 
-        # 3. MusicBrainz Source
+        # 4. MusicBrainz Source
         if "musicbrainz" in sources:
             cls._search_musicbrainz(queries, clean_artist, clean_title, candidates, seen_urls)
 
         # Sort candidates by relevance score descending
         candidates.sort(key=lambda x: x["score"], reverse=True)
         return candidates
+
+    @classmethod
+    def _search_discogs(cls, queries, clean_artist, clean_title, candidates, seen_urls):
+        import config
+        token = getattr(config, 'DISCOGS_API_TOKEN', '')
+        headers = {"User-Agent": "HoerspielTagger/1.3.0 (+https://github.com/3Draco/HoerspielTagger)"}
+        if token:
+            headers["Authorization"] = f"Discogs token={token}"
+
+        discogs_url = "https://api.discogs.com/database/search"
+        for query in queries:
+            if not query.strip():
+                continue
+            params = {"q": query.strip(), "type": "release", "per_page": 5}
+            if token:
+                params["token"] = token
+            try:
+                response = requests.get(discogs_url, params=params, headers=headers, timeout=6)
+                if response.status_code == 200:
+                    results = response.json().get("results", [])
+                    for res in results:
+                        artwork_url = res.get("cover_image") or res.get("thumb")
+                        resource_url = res.get("resource_url")
+
+                        # If cover_image is empty (e.g. search without token), fetch release endpoint for image URL
+                        if not artwork_url and resource_url:
+                            try:
+                                rel_resp = requests.get(resource_url, headers=headers, timeout=4)
+                                if rel_resp.status_code == 200:
+                                    imgs = rel_resp.json().get("images", [])
+                                    if imgs:
+                                        artwork_url = imgs[0].get("resource_url") or imgs[0].get("uri")
+                            except Exception:
+                                pass
+
+                        if not artwork_url or artwork_url in seen_urls:
+                            continue
+                        seen_urls.add(artwork_url)
+                        full_title = res.get("title") or ""
+                        parts = full_title.split(" - ", 1)
+                        art_name = parts[0] if len(parts) > 1 else ""
+                        col_name = parts[1] if len(parts) > 1 else full_title
+                        thumb = res.get("thumb") or artwork_url
+                        
+                        year_val = res.get("year")
+                        year = None
+                        if year_val:
+                            try:
+                                year = int(str(year_val)[:4])
+                            except (ValueError, TypeError):
+                                year = None
+                                
+                        score = 0
+                        if clean_title and clean_title.lower() in col_name.lower():
+                            score += 10
+                        if clean_artist and clean_artist.lower() in art_name.lower():
+                            score += 5
+                        formats = [str(f).lower() for f in res.get("format", [])]
+                        if any(f in ["cassette", "album", "audiobook"] for f in formats):
+                            score += 2
+
+                        candidates.append({
+                            "title": f"[Discogs] {col_name}",
+                            "artist": art_name,
+                            "url": artwork_url,
+                            "thumb": thumb,
+                            "year": year,
+                            "score": score,
+                            "source": "discogs"
+                        })
+            except Exception:
+                pass
 
     @classmethod
     def _search_itunes(cls, queries, clean_artist, clean_title, candidates, seen_urls):
@@ -81,6 +157,9 @@ class CoverDownloader:
                             art_name = res.get("artistName") or ""
                             high_res = artwork_url.replace("100x100bb.jpg", "600x600bb.jpg")
                             
+                            rel_date = str(res.get("releaseDate") or "")
+                            year = int(rel_date[:4]) if len(rel_date) >= 4 and rel_date[:4].isdigit() else None
+
                             score = 0
                             if clean_title and clean_title.lower() in col_name.lower():
                                 score += 10
@@ -94,7 +173,9 @@ class CoverDownloader:
                                 "artist": art_name,
                                 "url": high_res,
                                 "thumb": artwork_url,
-                                "score": score
+                                "year": year,
+                                "score": score,
+                                "source": "itunes"
                             })
                 except Exception:
                     pass
@@ -118,6 +199,9 @@ class CoverDownloader:
                         art_name = res.get("artist", {}).get("name") or ""
                         thumb = res.get("cover_medium") or res.get("cover_small") or artwork_url
                         
+                        rel_date = str(res.get("release_date") or "")
+                        year = int(rel_date[:4]) if len(rel_date) >= 4 and rel_date[:4].isdigit() else None
+
                         score = 0
                         if clean_title and clean_title.lower() in col_name.lower():
                             score += 10
@@ -129,14 +213,16 @@ class CoverDownloader:
                             "artist": art_name,
                             "url": artwork_url,
                             "thumb": thumb,
-                            "score": score
+                            "year": year,
+                            "score": score,
+                            "source": "deezer"
                         })
             except Exception:
                 pass
 
     @classmethod
     def _search_musicbrainz(cls, queries, clean_artist, clean_title, candidates, seen_urls):
-        headers = {"User-Agent": "HoerspielTagger/1.0.0 ( https://github.com/3Draco/HoerspielTagger )"}
+        headers = {"User-Agent": "HoerspielTagger/1.3.0 (+https://github.com/3Draco/HoerspielTagger)"}
         if not queries:
             return
         query = queries[0]
@@ -150,6 +236,9 @@ class CoverDownloader:
                     mbid = rel.get("id")
                     if not mbid:
                         continue
+                    date_str = str(rel.get("first-release-date") or rel.get("date") or "")
+                    year = int(date_str[:4]) if len(date_str) >= 4 and date_str[:4].isdigit() else None
+
                     caa_url = f"https://coverartarchive.org/release/{mbid}"
                     try:
                         caa_resp = requests.get(caa_url, timeout=4)
@@ -177,7 +266,9 @@ class CoverDownloader:
                                         "artist": art_name,
                                         "url": high_res,
                                         "thumb": thumb,
-                                        "score": score
+                                        "year": year,
+                                        "score": score,
+                                        "source": "musicbrainz"
                                     })
                                     break
                     except Exception:
@@ -195,9 +286,19 @@ class CoverDownloader:
 
     @staticmethod
     def download_image(url: str) -> Optional[bytes]:
-        """Downloads the image from the given URL and returns bytes."""
+        """Downloads the image from the given URL with proper browser headers."""
+        if not url:
+            return None
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+        }
         try:
-            response = requests.get(url, timeout=15)
+            import config
+            token = getattr(config, 'DISCOGS_API_TOKEN', '')
+            if "discogs.com" in url.lower() and token:
+                headers["Authorization"] = f"Discogs token={token}"
+            response = requests.get(url, headers=headers, timeout=15)
             if response.status_code == 200:
                 return response.content
         except Exception:

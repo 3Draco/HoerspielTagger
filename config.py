@@ -15,6 +15,8 @@ APP_VERSION = "v1.3.0"
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "lm-studio")
 LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "meta-llama-3-8b-instruct")
+DISCOGS_API_TOKEN = os.getenv("DISCOGS_API_TOKEN", "")
+
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a professional metadata tagging assistant for media servers like Plex.\n"

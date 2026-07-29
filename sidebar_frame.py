@@ -13,7 +13,6 @@ class SidebarFrame(ctk.CTkFrame):
         on_browse_folder: Callable[[], None],
         on_open_api_settings: Callable[[], None],
         on_merge_toggle: Callable[[], None],
-        on_move_tracks_toggle: Callable[[], None],
         on_delete_tracks_toggle: Callable[[], None],
         on_update_preview: Callable[[], None],
         on_flat_episodes_toggle: Callable[[], None],
@@ -29,7 +28,6 @@ class SidebarFrame(ctk.CTkFrame):
         self.on_browse_folder = on_browse_folder
         self.on_open_api_settings = on_open_api_settings
         self.on_merge_toggle = on_merge_toggle
-        self.on_move_tracks_toggle = on_move_tracks_toggle
         self.on_delete_tracks_toggle = on_delete_tracks_toggle
         self.on_update_preview = on_update_preview
         self.on_flat_episodes_toggle = on_flat_episodes_toggle
@@ -85,14 +83,10 @@ class SidebarFrame(ctk.CTkFrame):
         self.merge_cb = ctk.CTkCheckBox(self, text="Verlustfrei zusammenfügen & ID3-Kapitel", variable=self.merge_var, command=self.on_merge_toggle)
         self.merge_cb.grid(row=13, column=0, padx=20, pady=2, sticky="w")
 
-        # Cleanup options (indented, disabled by default)
-        self.move_tracks_var = ctk.BooleanVar(value=False)
-        self.move_tracks_cb = ctk.CTkCheckBox(self, text="  ↳ Originale in 'Tracks' verschieben", variable=self.move_tracks_var, command=self.on_move_tracks_toggle, state="disabled")
-        self.move_tracks_cb.grid(row=14, column=0, padx=20, pady=2, sticky="w")
-
+        # Cleanup option under merge
         self.delete_tracks_var = ctk.BooleanVar(value=False)
-        self.delete_tracks_cb = ctk.CTkCheckBox(self, text="  ↳ Originale löschen", variable=self.delete_tracks_var, command=self.on_delete_tracks_toggle, state="disabled")
-        self.delete_tracks_cb.grid(row=15, column=0, padx=20, pady=2, sticky="w")
+        self.delete_tracks_cb = ctk.CTkCheckBox(self, text="  ↳ Originale löschen (statt in 'Tracks')", variable=self.delete_tracks_var, command=self.on_delete_tracks_toggle, state="disabled")
+        self.delete_tracks_cb.grid(row=14, column=0, padx=20, pady=2, sticky="w")
 
         self.rename_folder_var = ctk.BooleanVar(value=True)
         self.rename_folder_cb = ctk.CTkCheckBox(self, text="📁 Episoden-Ordner umbenennen", variable=self.rename_folder_var, command=self.on_update_preview)

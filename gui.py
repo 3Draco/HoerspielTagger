@@ -141,6 +141,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "api_key": config.LLM_API_KEY,
                 "model_id": config.LLM_MODEL_ID,
                 "system_prompt": config.LLM_SYSTEM_PROMPT,
+                "discogs_token": getattr(config, "DISCOGS_API_TOKEN", ""),
                 "dry_run": self.dry_run_var.get(),
                 "merge": self.merge_var.get(),
                 "move_tracks": self.move_tracks_var.get(),
@@ -150,6 +151,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "cover": self.cover_var.get(),
                 "target_dir": self.target_dir,
                 "source_embedded": self.source_embedded_var.get(),
+                "source_discogs": self.source_discogs_var.get(),
                 "source_itunes": self.source_itunes_var.get(),
                 "source_deezer": self.source_deezer_var.get(),
                 "source_musicbrainz": self.source_musicbrainz_var.get(),
@@ -194,8 +196,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     @property
     def merge_var(self): return self.sidebar.merge_var
     @property
-    def move_tracks_var(self): return self.sidebar.move_tracks_var
-    @property
     def delete_tracks_var(self): return self.sidebar.delete_tracks_var
     @property
     def rename_folder_var(self): return self.sidebar.rename_folder_var
@@ -208,8 +208,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
     @property
     def folder_lbl(self): return self.sidebar.folder_lbl
-    @property
-    def move_tracks_cb(self): return self.sidebar.move_tracks_cb
     @property
     def delete_tracks_cb(self): return self.sidebar.delete_tracks_cb
     @property
@@ -234,6 +232,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     def cover_status_lbl(self): return self.cover_panel.cover_status_lbl
     @property
     def source_embedded_var(self): return self.cover_panel.source_embedded_var
+    @property
+    def source_discogs_var(self): return self.cover_panel.source_discogs_var
     @property
     def source_itunes_var(self): return self.cover_panel.source_itunes_var
     @property
@@ -264,7 +264,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             on_browse_folder=self._browse_folder,
             on_open_api_settings=self._open_api_settings_dialog,
             on_merge_toggle=self._on_merge_toggle,
-            on_move_tracks_toggle=self._on_move_tracks_toggle,
             on_delete_tracks_toggle=self._on_delete_tracks_toggle,
             on_update_preview=self._update_live_preview,
             on_flat_episodes_toggle=self._on_flat_episodes_toggle,
@@ -402,11 +401,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         config.LLM_API_KEY = self.loaded_settings.get("api_key", config.LLM_API_KEY)
         config.LLM_MODEL_ID = self.loaded_settings.get("model_id", config.LLM_MODEL_ID)
         config.LLM_SYSTEM_PROMPT = self.loaded_settings.get("system_prompt", config.LLM_SYSTEM_PROMPT)
+        config.DISCOGS_API_TOKEN = self.loaded_settings.get("discogs_token", getattr(config, "DISCOGS_API_TOKEN", ""))
 
         # Load options checkboxes
         self.dry_run_var.set(self.loaded_settings.get("dry_run", True))
         self.merge_var.set(self.loaded_settings.get("merge", False))
-        self.move_tracks_var.set(self.loaded_settings.get("move_tracks", False))
         self.delete_tracks_var.set(self.loaded_settings.get("delete_tracks", False))
         self.rename_folder_var.set(self.loaded_settings.get("rename_folder", True))
         self.parent_series_var.set(self.loaded_settings.get("parent_series", True))
@@ -414,6 +413,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Load cover sources settings
         self.source_embedded_var.set(self.loaded_settings.get("source_embedded", True))
+        self.source_discogs_var.set(self.loaded_settings.get("source_discogs", True))
         self.source_itunes_var.set(self.loaded_settings.get("source_itunes", True))
         self.source_deezer_var.set(self.loaded_settings.get("source_deezer", True))
         self.source_musicbrainz_var.set(self.loaded_settings.get("source_musicbrainz", True))
@@ -633,6 +633,25 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             except Exception as e:
                 messagebox.showerror("Fehler beim Laden", f"Konnte lokale Bilddatei nicht lesen: {e}")
 
+    def _get_active_cover_sources(self) -> List[str]:
+        sources = []
+        if self.source_discogs_var.get():
+            sources.append("discogs")
+        if self.source_itunes_var.get():
+            sources.append("itunes")
+        if self.source_deezer_var.get():
+            sources.append("deezer")
+        if self.source_musicbrainz_var.get():
+            sources.append("musicbrainz")
+        return sources
+
+    def _auto_fill_year_if_missing(self, year_val: Optional[int]):
+        if year_val and "year" in self.form_entries:
+            current_year = self.form_entries["year"].get().strip()
+            if not current_year:
+                self.form_entries["year"].delete(0, tk.END)
+                self.form_entries["year"].insert(0, str(year_val))
+
     def _on_cover_source_changed(self):
         """Triggered when cover sources checkboxes are toggled by the user."""
         if not self.scan_results or self.current_album_idx not in range(len(self.scan_results)):
@@ -662,13 +681,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 print(f"Error restoring embedded cover: {e}")
 
         # Otherwise, if we have active online sources, fetch the best online match
-        sources = []
-        if self.source_itunes_var.get():
-            sources.append("itunes")
-        if self.source_deezer_var.get():
-            sources.append("deezer")
-        if self.source_musicbrainz_var.get():
-            sources.append("musicbrainz")
+        sources = self._get_active_cover_sources()
 
         if sources:
             artist = self.form_entries["album_artist"].get().strip()
@@ -679,17 +692,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.update()
 
             def fetch():
-                cover_url = CoverDownloader.search_cover_url(artist, album_title, title, sources=sources)
-                if cover_url:
-                    img_bytes = CoverDownloader.download_image(cover_url)
-                    if img_bytes:
-                        def apply():
-                            self.cover_bytes = img_bytes
-                            self._display_cover_image(img_bytes)
-                            self.cover_status_lbl.configure(text="Cover online geladen", text_color="#2b712b")
-                            self._save_current_album_state()
-                        self.after(0, apply)
-                        return
+                candidates = CoverDownloader.search_cover_candidates(artist, album_title, title, sources=sources)
+                if candidates:
+                    best = candidates[0]
+                    cover_url = best.get("url")
+                    found_year = best.get("year")
+                    if cover_url:
+                        img_bytes = CoverDownloader.download_image(cover_url)
+                        if img_bytes:
+                            def apply():
+                                self.cover_bytes = img_bytes
+                                self._display_cover_image(img_bytes)
+                                self._auto_fill_year_if_missing(found_year)
+                                self.cover_status_lbl.configure(text="Cover online geladen", text_color="#2b712b")
+                                self._save_current_album_state()
+                            self.after(0, apply)
+                            return
                 def fail():
                     self.cover_bytes = None
                     self.current_ctk_image = None
@@ -1116,33 +1134,29 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.google_search_btn.configure(state="disabled")
 
     def _open_cover_chooser(self):
-        """Opens modal dialog for choosing between multiple candidate album covers from active sources."""
+        """Opens modal dialog immediately for choosing between multiple candidate album covers from active sources."""
         artist = self.form_entries["album_artist"].get()
         album = self.form_entries["album"].get()
         title = self.form_entries["series"].get() or album
+        sources = self._get_active_cover_sources()
 
-        sources = []
-        if self.source_itunes_var.get():
-            sources.append("itunes")
-        if self.source_deezer_var.get():
-            sources.append("deezer")
-        if self.source_musicbrainz_var.get():
-            sources.append("musicbrainz")
+        def on_selected(new_bytes, year=None):
+            self._cover_fetch_token += 1
+            self.cover_bytes = new_bytes
+            self._display_cover_image(new_bytes)
+            if year:
+                self._auto_fill_year_if_missing(year)
+            self.cover_status_lbl.configure(text="Cover aus Varianten gewählt", text_color="#2b712b")
+            self._save_current_album_state()
 
-        def fetch_and_open():
-            candidates = CoverDownloader.search_cover_candidates(artist, album, title, sources=sources)
-            def open_dialog():
-                def on_selected(new_bytes):
-                    self._cover_fetch_token += 1
-                    self.cover_bytes = new_bytes
-                    self._display_cover_image(new_bytes)
-                    self.cover_status_lbl.configure(text="Cover aus Varianten gewählt", text_color="#2b712b")
-                    self._save_current_album_state()
-
-                CoverChooserDialog(self, candidates, on_selected)
-            self.after(0, open_dialog)
-
-        threading.Thread(target=fetch_and_open, daemon=True).start()
+        CoverChooserDialog(
+            parent=self,
+            artist=artist,
+            album=album,
+            title=title,
+            sources=sources,
+            on_select_cover=on_selected
+        )
 
     def _start_analysis(self):
         if not self.scan_results or self.is_processing:
@@ -1229,21 +1243,20 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     except Exception as e:
                         print(f"Error loading embedded cover in analysis: {e}")
 
-                if not cover_bytes and self.cover_var.get():
-                    sources = []
-                    if self.source_itunes_var.get():
-                        sources.append("itunes")
-                    if self.source_deezer_var.get():
-                        sources.append("deezer")
-                    if self.source_musicbrainz_var.get():
-                        sources.append("musicbrainz")
-
+                if self.cover_var.get() or not metadata.year:
+                    sources = self._get_active_cover_sources()
                     if sources:
-                        cover_url = CoverDownloader.search_cover_url(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
-                        if cover_url:
-                            cover_bytes = CoverDownloader.download_image(cover_url)
-                            cover_status = "Cover geladen"
-                            cover_color = "#2b712b"
+                        candidates = CoverDownloader.search_cover_candidates(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
+                        if candidates:
+                            best = candidates[0]
+                            if not cover_bytes and self.cover_var.get():
+                                cover_url = best.get("url")
+                                if cover_url:
+                                    cover_bytes = CoverDownloader.download_image(cover_url)
+                                    cover_status = "Cover online geladen"
+                                    cover_color = "#2b712b"
+                            if not metadata.year and best.get("year"):
+                                metadata.year = best["year"]
 
                 if not cover_bytes:
                     local_cover = self._find_local_cover(folder_path)
@@ -1464,12 +1477,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     def _on_merge_toggle(self):
         self._update_live_preview()
         if self.merge_var.get():
-            self.move_tracks_cb.configure(state="normal")
             self.delete_tracks_cb.configure(state="normal")
         else:
-            self.move_tracks_var.set(False)
             self.delete_tracks_var.set(False)
-            self.move_tracks_cb.configure(state="disabled")
             self.delete_tracks_cb.configure(state="disabled")
 
     def _on_flat_episodes_toggle(self):
@@ -1480,13 +1490,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.rename_folder_cb.configure(text="📁 Episoden-Ordner umbenennen")
         self._scan_folder(reset_states=True)
 
-    def _on_move_tracks_toggle(self):
-        if self.move_tracks_var.get():
-            self.delete_tracks_var.set(False)
-
     def _on_delete_tracks_toggle(self):
-        if self.delete_tracks_var.get():
-            self.move_tracks_var.set(False)
+        pass
 
     def _on_cover_source_changed(self):
         """Immediately re-evaluates and loads cover art when any cover source checkbox is toggled in a background thread."""
@@ -1531,26 +1536,24 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             cover_status = "Kein Cover geladen"
             cover_color = "gray"
 
-            if self.cover_var.get():
-                sources = []
-                if self.source_itunes_var.get():
-                    sources.append("itunes")
-                if self.source_deezer_var.get():
-                    sources.append("deezer")
-                if self.source_musicbrainz_var.get():
-                    sources.append("musicbrainz")
-
+            found_year = None
+            if self.cover_var.get() or ("year" in self.form_entries and not self.form_entries["year"].get().strip()):
+                sources = self._get_active_cover_sources()
                 if sources:
                     artist = self.form_entries["album_artist"].get() if "album_artist" in self.form_entries else (metadata.album_artist if metadata else "")
                     album_title = self.form_entries["album"].get() if "album" in self.form_entries else (metadata.album if metadata else "")
                     episode_title = self.form_entries["episode_title"].get() if "episode_title" in self.form_entries else getattr(metadata, 'episode_title', None)
 
                     if artist or album_title:
-                        cover_url = CoverDownloader.search_cover_url(artist, album_title, episode_title, sources=sources)
-                        if cover_url:
-                            cover_bytes = CoverDownloader.download_image(cover_url)
-                            cover_status = "Cover online geladen"
-                            cover_color = "#2b712b"
+                        candidates = CoverDownloader.search_cover_candidates(artist, album_title, episode_title, sources=sources)
+                        if candidates:
+                            best = candidates[0]
+                            found_year = best.get("year")
+                            if self.cover_var.get() and best.get("url"):
+                                cover_bytes = CoverDownloader.download_image(best["url"])
+                                if cover_bytes:
+                                    cover_status = "Cover online geladen"
+                                    cover_color = "#2b712b"
 
             if not cover_bytes:
                 local_cover = self._find_local_cover(folder_path)
@@ -1582,6 +1585,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         pass
                     self.cover_status_lbl.configure(text=cover_status, text_color=cover_color)
                     self.crop_cover_btn.configure(state="disabled")
+
+                if found_year:
+                    self._auto_fill_year_if_missing(found_year)
 
                 self._save_current_album_state()
 
@@ -1908,6 +1914,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     
                     os.rename(orig_path, target_path)
 
+                change["actual_moved_path"] = str(target_path)
                 new_file_paths.append(str(target_path))
 
             # 3. Optional Lossless ffmpeg merge with ID3v2 CHAP/CTOC Chapters
@@ -1924,7 +1931,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     
                     # Sort file paths strictly by assigned track_number order
                     sorted_changes = sorted(changes, key=lambda x: x["track_number"])
-                    sorted_paths = [str(target_tracks_dir / c["new_filename"]) for c in sorted_changes]
+                    sorted_paths = [c.get("actual_moved_path", str(target_tracks_dir / c["new_filename"])) for c in sorted_changes]
 
                     try:
                         # Build chapter timing data from assigned tracks

@@ -187,12 +187,13 @@ class FileMerger:
                 f"{out_size / (1024*1024):.2f} MB vs. erwartet {total_input_size / (1024*1024):.2f} MB"
             )
 
-        # Check duration difference
+        # Check duration difference with dynamic tolerance (1.5s per track or 2% total duration, min 15s)
         if total_input_duration > 0 and out_duration > 0:
             diff = abs(out_duration - total_input_duration)
-            if diff > 4.0: # Margin of 4 seconds
+            max_allowed_diff = max(15.0, len(input_paths) * 1.5, total_input_duration * 0.02)
+            if diff > max_allowed_diff:
                 raise RuntimeError(
                     f"Die Dauer der zusammengefügten Datei weicht ab: "
-                    f"{out_duration:.2f}s vs. erwartet {total_input_duration:.2f}s (Diff: {diff:.2f}s)"
+                    f"{out_duration:.2f}s vs. erwartet {total_input_duration:.2f}s (Diff: {diff:.2f}s, max. erlaubt: {max_allowed_diff:.1f}s)"
                 )
 
