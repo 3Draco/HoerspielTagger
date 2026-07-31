@@ -68,11 +68,11 @@ class AnalysisProgressDialog(ctk.CTkToplevel):
         )
         self.status_lbl.grid(row=3, column=0, padx=20, pady=(0, 15), sticky="w")
 
-    def update_progress(self, current: int, total: int, folder_name: str):
-        ratio = float(current) / float(total) if total > 0 else 0.0
+    def update_progress(self, current_idx: int, total: int, folder_name: str):
+        ratio = float(current_idx) / float(total) if total > 0 else 0.0
         self.progress_bar.set(ratio)
         self.info_lbl.configure(text=f"Ordner: {folder_name}")
-        self.status_lbl.configure(text=f"Analysiere Ordner {current} von {total} ({int(ratio * 100)}%)")
+        self.status_lbl.configure(text=f"Analysiere Ordner {current_idx + 1} von {total} ({int(ratio * 100)}%)")
         self.update_idletasks()
 
     def close(self):

@@ -375,7 +375,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             on_open_cover_chooser=self._open_cover_chooser,
             on_load_manual_cover=self._load_manual_cover,
             on_google_cover_search=self._open_google_cover_search,
-            on_apply_metadata=self._apply_metadata
+            on_apply_metadata=self._apply_metadata,
+            on_apply_all_metadata=self._apply_all_metadata
         )
         self.cover_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
@@ -1201,8 +1202,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         threading.Thread(target=self._run_analysis_thread, daemon=True).start()
 
     def _update_analysis_status(self, i, t, fn):
-        self.loading_lbl.configure(text=f"⏳ Analysiere Ordner {i}/{t}: {fn}...")
-        self.llm_status_lbl.configure(text=f"⏳ Analysiere {i}/{t}: {fn}...", text_color="orange")
+        self.loading_lbl.configure(text=f"⏳ Analysiere Ordner {i + 1}/{t}: {fn}...")
+        self.llm_status_lbl.configure(text=f"⏳ Analysiere {i + 1}/{t}: {fn}...", text_color="orange")
         if hasattr(self, "progress_dialog") and self.progress_dialog:
             self.progress_dialog.update_progress(i, t, fn)
 
@@ -1261,7 +1262,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 folder_path = album["folder_path"]
                 folder_name = album["folder_name"]
 
-                self.after(0, lambda i=idx+1, t=total, fn=folder_name: self._update_analysis_status(i, t, fn))
+                self.after(0, lambda i=idx, t=total, fn=folder_name: self._update_analysis_status(i, t, fn))
 
                 # Check if folder starts with a registered prefix code (e.g. LB08, JS120)
                 pre_matched = None
