@@ -1,7 +1,8 @@
 {
   "alf": {
     "display_name": "Alf",
-    "genre": "Hörspiel; Comedy"
+    "genre": "Hörspiel; Comedy",
+    "aliases": []
   },
   "fünf freunde": {
     "display_name": "Fünf Freunde",
