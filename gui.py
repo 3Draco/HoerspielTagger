@@ -87,13 +87,25 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             if geom:
                 parts = geom.split("+")
                 if len(parts) == 3:
-                    x = int(parts[1])
-                    y = int(parts[2])
-                    screen_w = self.winfo_screenwidth()
-                    screen_h = self.winfo_screenheight()
-                    if -100 < x < screen_w - 100 and -100 < y < screen_h - 100:
-                        self.geometry(geom)
-                    else:
+                    try:
+                        x = int(parts[1])
+                        y = int(parts[2])
+                        import ctypes
+                        try:
+                            # Use Windows system metrics for virtual desktop (multi-monitor/surround bounds)
+                            vx = ctypes.windll.user32.GetSystemMetrics(76) # SM_XVIRTUALSCREEN
+                            vy = ctypes.windll.user32.GetSystemMetrics(77) # SM_YVIRTUALSCREEN
+                            vw = ctypes.windll.user32.GetSystemMetrics(78) # SM_CXVIRTUALSCREEN
+                            vh = ctypes.windll.user32.GetSystemMetrics(79) # SM_CYVIRTUALSCREEN
+                        except Exception:
+                            vx, vy, vw, vh = -10000, -10000, 40000, 40000
+
+                        # Check if window top-left is within any active monitor area
+                        if (vx - 100 <= x <= vx + vw - 100) and (vy - 100 <= y <= vy + vh - 100):
+                            self.geometry(geom)
+                        else:
+                            self.geometry("1200x800")
+                    except Exception:
                         self.geometry("1200x800")
                 else:
                     self.geometry("1200x800")
@@ -144,7 +156,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "discogs_token": getattr(config, "DISCOGS_API_TOKEN", ""),
                 "dry_run": self.dry_run_var.get(),
                 "merge": self.merge_var.get(),
-                "move_tracks": self.move_tracks_var.get(),
                 "delete_tracks": self.delete_tracks_var.get(),
                 "rename_folder": self.rename_folder_var.get(),
                 "parent_series": self.parent_series_var.get(),
@@ -179,8 +190,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
             with open(state_file, "wb") as f:
                 f.write(encrypted_data)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error saving settings on exit: {e}")
 
         try:
             self.quit()
@@ -250,6 +261,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     def google_search_btn(self): return self.cover_panel.google_search_btn
     @property
     def apply_btn(self): return self.cover_panel.apply_btn
+    @property
+    def apply_all_btn(self): return self.cover_panel.apply_all_btn
 
     def _build_ui(self):
         # Configure grid layout (2 rows, 2 columns)
@@ -270,7 +283,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             on_scan_folder=self._scan_folder,
             on_start_analysis=self._start_analysis,
             on_clear_cache=self._clear_cache,
-            on_open_splitter=self._open_splitter_dialog
+            on_open_splitter=self._open_splitter_dialog,
+            on_open_series_db=self._open_series_db_dialog
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
@@ -1080,6 +1094,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if self.track_rows:
             self._render_track_rows()
             self.apply_btn.configure(state="normal")
+            self.apply_all_btn.configure(state="normal")
             self.manual_cover_btn.configure(state="normal")
             self.chooser_cover_btn.configure(state="normal")
             self.google_search_btn.configure(state="normal")
@@ -1128,6 +1143,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         
         self.track_rows = []
         self.apply_btn.configure(state="disabled")
+        self.apply_all_btn.configure(state="disabled")
         self.manual_cover_btn.configure(state="disabled")
         self.chooser_cover_btn.configure(state="disabled")
         self.crop_cover_btn.configure(state="disabled")
@@ -1172,10 +1188,31 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.loading_lbl.configure(text="⏳ Starte Batch-Analyse...")
         self.progress_bar.start()
 
+        # Update bottom-left status bar
+        self.llm_status_lbl.configure(text="⏳ LLM Analyse gestartet...", text_color="orange")
+
         self.content_tabview.set("Metadaten bearbeiten und taggen")
+
+        # Open blocking progress dialog
+        from analysis_progress_dialog import AnalysisProgressDialog
+        self.progress_dialog = AnalysisProgressDialog(self)
 
         # Run in thread so GUI doesn't freeze
         threading.Thread(target=self._run_analysis_thread, daemon=True).start()
+
+    def _update_analysis_status(self, i, t, fn):
+        self.loading_lbl.configure(text=f"⏳ Analysiere Ordner {i}/{t}: {fn}...")
+        self.llm_status_lbl.configure(text=f"⏳ Analysiere {i}/{t}: {fn}...", text_color="orange")
+        if hasattr(self, "progress_dialog") and self.progress_dialog:
+            self.progress_dialog.update_progress(i, t, fn)
+
+    def _close_progress_dialog(self):
+        if hasattr(self, "progress_dialog") and self.progress_dialog:
+            try:
+                self.progress_dialog.close()
+            except Exception:
+                pass
+            self.progress_dialog = None
 
     def _stop_loading_indicator(self):
         """Stops and hides the header loading progress bar."""
@@ -1209,17 +1246,58 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.llm_client = LLMClient()
             total = len(self.scan_results)
 
+            # Enrich system prompt with known acronyms/aliases
+            active_prompt = config.LLM_SYSTEM_PROMPT
+            try:
+                from series_db import SeriesDatabase
+                alias_summary = SeriesDatabase.get_prompt_aliases_summary()
+                if alias_summary:
+                    active_prompt += "\n\nBEKANNTE SERIEN-KÜRZEL & ALIASE (VERWENDE DIESE NORM-NAMEN):\n" + alias_summary
+            except Exception as e:
+                print(f"[SeriesDB Prompt Info] {e}")
+
             for idx in range(total):
                 album = self.scan_results[idx]
                 folder_path = album["folder_path"]
                 folder_name = album["folder_name"]
 
-                self.after(0, lambda i=idx+1, t=total, fn=folder_name: self.loading_lbl.configure(
-                    text=f"⏳ Analysiere Ordner {i}/{t}: {fn}..."
-                ))
+                self.after(0, lambda i=idx+1, t=total, fn=folder_name: self._update_analysis_status(i, t, fn))
 
-                # 1. Query LLM for this folder
-                metadata = self.llm_client.analyze_album(folder_name, album["tracks"], custom_prompt=config.LLM_SYSTEM_PROMPT)
+                # Check if folder starts with a registered prefix code (e.g. LB08, JS120)
+                pre_matched = None
+                try:
+                    from series_db import SeriesDatabase
+                    pre_matched = SeriesDatabase.resolve_folder_prefix(folder_name)
+                except Exception:
+                    pass
+
+                # 1. Query LLM for this folder with enriched prompt
+                metadata = self.llm_client.analyze_album(folder_name, album["tracks"], custom_prompt=active_prompt)
+
+                # Apply pre-matched series info if found
+                if pre_matched:
+                    metadata.series = pre_matched["series_name"]
+                    metadata.series_name = pre_matched["series_name"]
+                    metadata.album_artist = pre_matched["series_name"]
+                    metadata.genre = pre_matched["genre"]
+                    metadata.formatted_genre = pre_matched["genre"]
+                    if pre_matched.get("episode_num") is not None:
+                        metadata.series_part = pre_matched["episode_num"]
+
+                # Check SeriesDatabase for genre consistency / instant registration
+                try:
+                    from series_db import SeriesDatabase
+                    series_name = metadata.series_name or metadata.album_artist or metadata.series
+                    if series_name:
+                        known_genre = SeriesDatabase.get_genre(series_name)
+                        if known_genre:
+                            metadata.genre = known_genre
+                            metadata.formatted_genre = known_genre
+                        elif metadata.genre:
+                            # INSTANT REGISTRATION: First episode registers series genre immediately!
+                            SeriesDatabase.set_series_genre(series_name, metadata.genre)
+                except Exception as db_err:
+                    print(f"[SeriesDB Info] {db_err}")
 
                 # 2. Cover Art search for this folder
                 cover_bytes = None
@@ -1324,7 +1402,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             def on_batch_done():
                 self.content_tabview.set("Metadaten bearbeiten und taggen")
                 self._restore_album_state(self.current_album_idx)
+                self.apply_all_btn.configure(state="normal")
                 
+                # Update bottom-left status bar
+                self.llm_status_lbl.configure(text="🟢 LLM Analyse abgeschlossen", text_color="#2b712b")
+
                 # Show status message
                 self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
                 self.loading_lbl.configure(
@@ -1342,6 +1424,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, lambda: self.progress_bar.stop())
             self.after(0, lambda: self.progress_bar.grid_remove())
             self.after(0, lambda: self.analyze_btn.configure(state="normal", text="LLM-Analyse starten"))
+            self.after(0, self._close_progress_dialog)
 
     def _display_metadata_proposal(self, metadata: AlbumMetadata, cover_url: Optional[str]):
         # Populate Form fields
@@ -1378,16 +1461,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 self.cover_status_lbl.configure(text="iTunes-Suche erfolglos", text_color="#7a2b2b")
                 self.crop_cover_btn.configure(state="disabled")
 
-        # Enable manual cover & chooser buttons
-        self.manual_cover_btn.configure(state="normal")
-        self.chooser_cover_btn.configure(state="normal")
-
-        # Build track rows data
+        # Build track rows data for this folder
         orig_tracks = self.scan_results[self.current_album_idx]["tracks"]
         series_name = metadata.series_name or metadata.album_artist or metadata.series
-        self.track_rows = []
-        for i, track in enumerate(orig_tracks):
-            row_num = i + 1
+
+        track_rows = []
+        for i_t, track in enumerate(orig_tracks):
+            row_num = i_t + 1
             prop = next((t for t in metadata.tracks if t.original_filename == track["filename"]), None)
             raw_clean = prop.clean_title if prop else track["title"] or Path(track["filename"]).stem
             clean_title_val = self._clean_track_title(raw_clean, series_name)
@@ -1399,15 +1479,17 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 if episode_num:
                     track_num_val = episode_num
 
-            self.track_rows.append({
+            track_rows.append({
                 "original_filename": track["filename"],
                 "filepath": track["filepath"],
                 "clean_title": clean_title_val,
                 "track_number": track_num_val
             })
 
+        self.track_rows = track_rows
         self._render_track_rows()
         self.apply_btn.configure(state="normal")
+        self.apply_all_btn.configure(state="normal")
 
         # Save analyzed state for current album so switching navigation keeps it
         self._save_current_album_state()
@@ -1757,6 +1839,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _handle_analysis_error(self, err_msg: str):
         self.loading_lbl.grid_remove()
+        self.llm_status_lbl.configure(text="🔴 LLM Analyse fehlgeschlagen", text_color="#d9534f")
         messagebox.showerror("LLM-Analyse Fehler", f"Die LLM-Analyse schlug fehl:\n{err_msg}")
         self.scan_textbox.insert(tk.END, f"\n❌ LLM-Analyse fehlgeschlagen: {err_msg}")
         self.content_tabview.set("Scannen und Ordnerstruktur")
@@ -1847,7 +1930,189 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         SummaryDialog(self, log_msgs=log_msgs, is_dry_run=is_dry_run, on_confirm_callback=on_confirm)
 
-    def _run_write_operation(self, album, album_artist, album_name, genre, year, changes):
+    def _apply_all_metadata(self):
+        if not self.scan_results:
+            messagebox.showinfo("Keine Alben", "Es wurden keine Alben gescannt oder geladen.")
+            return
+
+        try:
+            self._save_current_album_state()
+            is_dry_run = self.dry_run_var.get()
+            total_albums = len(self.scan_results)
+
+            log_msgs = []
+            log_msgs.append(f"=== BATCH-{'TESTLAUF (Dry-Run)' if is_dry_run else 'SCHREIBOPERATION'} FÜR ALLE {total_albums} HÖRSPIELE ===")
+
+            all_batch_items = []
+
+            for idx, album in enumerate(self.scan_results):
+                tracks = album.get("tracks", [])
+                if album.get("flat_mode") and tracks:
+                    state_key = tracks[0]["filepath"]
+                else:
+                    state_key = album.get("folder_path", "")
+
+                state = self.album_states.get(state_key, {})
+                form_data = state.get("form_data", {})
+                track_rows = state.get("track_rows", [])
+
+                # Fallback if track_rows was not populated in state
+                if not track_rows and tracks:
+                    track_rows = []
+                    for i_t, t in enumerate(tracks, 1):
+                        clean_t = t.get("title") or Path(t["filename"]).stem
+                        track_rows.append({
+                            "original_filename": t["filename"],
+                            "filepath": t["filepath"],
+                            "clean_title": clean_t,
+                            "track_number": t.get("track_number") or i_t
+                        })
+
+                album_artist = form_data.get("album_artist") or album.get("album_artist") or album.get("folder_name", "")
+                album_name = form_data.get("album") or album.get("album") or album.get("folder_name", "")
+
+                import re
+                match = re.match(r"^(\d+)\s*-\s*(.*)$", album_name)
+                if match:
+                    num_str, title_str = match.groups()
+                    album_name = f"{int(num_str):02d} - {title_str}"
+
+                ep_title = form_data.get("episode_title") or (album_name.split(" - ", 1)[-1] if " - " in album_name else album_name)
+                series_part = form_data.get("series_part") or ""
+
+                genre = form_data.get("genre", "Hörspiel")
+                year_str = form_data.get("year", "")
+                year = int(year_str) if year_str and year_str.isdigit() else None
+
+                log_msgs.append(f"\n[{idx+1}/{total_albums}] Ordner: {album.get('folder_name', 'Unbekannt')}")
+                log_msgs.append(f"  Album-Interpret: {album_artist}")
+                log_msgs.append(f"  Album (Folge):  {album_name}")
+                log_msgs.append(f"  Genre:          {genre}")
+                log_msgs.append(f"  Jahr:           {year if year else 'Keines'}")
+
+                changes = []
+                for row in track_rows:
+                    orig_filename = row.get("original_filename", "")
+                    filepath = row.get("filepath", "")
+                    track_num = row.get("track_number", 1)
+                    clean_title = row.get("clean_title", "")
+                    new_filename = f"{track_num:02d} - {clean_title}.mp3"
+                    changes.append({
+                        "orig_filename": orig_filename,
+                        "filepath": filepath,
+                        "track_number": track_num,
+                        "clean_title": clean_title,
+                        "new_filename": new_filename
+                    })
+
+                changes.sort(key=lambda x: x["track_number"])
+
+                for change in changes:
+                    log_msgs.append(f"  * Track {change['track_number']:02d}: {change['clean_title']}")
+
+                c_bytes = state.get("cover_bytes")
+                if not c_bytes and album.get("has_embedded_cover") and self.source_embedded_var.get():
+                    try:
+                        from mutagen.mp3 import MP3
+                        if tracks:
+                            t0 = tracks[0]
+                            audio = MP3(t0["filepath"])
+                            if audio.tags:
+                                for key in audio.tags.keys():
+                                    if key.startswith("APIC"):
+                                        c_bytes = audio.tags[key].data
+                                        break
+                    except Exception:
+                        pass
+
+                if not c_bytes:
+                    local_c = self._find_local_cover(album["folder_path"])
+                    if local_c:
+                        try:
+                            with open(local_c, "rb") as f:
+                                c_bytes = f.read()
+                        except Exception:
+                            pass
+
+                all_batch_items.append({
+                    "album": album,
+                    "album_artist": album_artist,
+                    "album_name": album_name,
+                    "episode_title": ep_title,
+                    "series_part": series_part,
+                    "genre": genre,
+                    "year": year,
+                    "changes": changes,
+                    "cover_bytes": c_bytes
+                })
+
+            def on_confirm():
+                if not is_dry_run:
+                    self.apply_btn.configure(state="disabled")
+                    self.apply_all_btn.configure(state="disabled", text="Speichere alle...")
+                    self.progress_bar.grid(row=0, column=2, padx=10, pady=2, sticky="e")
+                    self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
+                    self.loading_lbl.configure(text=f"💾 Speichere {total_albums} Alben...", text_color="#1f538d")
+                    self.progress_bar.start()
+
+                    threading.Thread(
+                        target=self._run_batch_all_write_operation, 
+                        args=(all_batch_items,), 
+                        daemon=True
+                    ).start()
+                else:
+                    messagebox.showinfo("Dry-Run Beendet", f"Der Dry-Run für alle {total_albums} Alben wurde erfolgreich simuliert. Es wurden keine Dateien verändert.")
+
+            SummaryDialog(self, log_msgs=log_msgs, is_dry_run=is_dry_run, on_confirm_callback=on_confirm)
+
+        except Exception as err:
+            messagebox.showerror("Fehler beim Vorbereiten", f"Konnte Änderungen für alle Alben nicht vorbereiten: {err}")
+
+    def _run_batch_all_write_operation(self, all_batch_items):
+        total = len(all_batch_items)
+        try:
+            for idx, item in enumerate(all_batch_items, start=1):
+                self.after(0, lambda i=idx, t=total, name=item["album_name"]: self.loading_lbl.configure(
+                    text=f"💾 Speichere Album {i}/{t}: {name}..."
+                ))
+                saved_cover = self.cover_bytes
+                self.cover_bytes = item["cover_bytes"]
+                self._run_write_operation(
+                    item["album"], 
+                    item["album_artist"], 
+                    item["album_name"], 
+                    item["genre"], 
+                    item["year"], 
+                    item["changes"],
+                    is_batch=True
+                )
+                self.cover_bytes = saved_cover
+
+            def on_done():
+                self._stop_loading_indicator()
+                messagebox.showinfo("Erfolg", f"Alle {total} Alben wurden erfolgreich gespeichert und getaggt!")
+                self.scan_textbox.insert(tk.END, f"\n✅ Alle {total} Alben erfolgreich gespeichert und getaggt.")
+                self._scan_folder(reset_states=True)
+
+            self.after(0, on_done)
+        except Exception as e:
+            self.after(0, lambda err=str(e): messagebox.showerror("Fehler beim Speichern", f"Fehler beim Speichern der Alben: {err}"))
+        finally:
+            self.is_processing = False
+            self.after(0, lambda: self.progress_bar.stop())
+            self.after(0, lambda: self.progress_bar.grid_remove())
+            self.after(0, lambda: self.apply_btn.configure(state="normal"))
+            self.after(0, lambda: self.apply_all_btn.configure(state="normal", text="💾 Alle Alben auf einmal speichern"))
+
+    def _run_write_operation(self, album, album_artist, album_name, genre, year, changes, is_batch: bool = False):
+        # Auto-learn / update SeriesDatabase with finalized series name & genre
+        if album_artist and genre:
+            try:
+                from series_db import SeriesDatabase
+                SeriesDatabase.set_series_genre(album_artist, genre)
+            except Exception as db_err:
+                print(f"[SeriesDB Info] {db_err}")
+
         folder_path = Path(album["folder_path"])
         is_flat = album.get("flat_mode", False)
 
@@ -1944,7 +2209,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         merged_file_path = str(merged_out)
                         
                         # Determine pure episode title (without '04 - ' prefix) for Plex from UI form
-                        episode_title = self.form_entries["episode_title"].get().strip()
+                        episode_title = self.form_entries["episode_title"].get().strip() if "episode_title" in self.form_entries else ""
                         if not episode_title:
                             episode_title = self.current_metadata.episode_title if (self.current_metadata and self.current_metadata.episode_title) else (album_name.split(" - ", 1)[-1] if " - " in album_name else album_name)
 
@@ -2018,19 +2283,20 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 album["folder_path"] = str(write_dest_dir)
 
             # Operations completed
-            def success_notify():
-                self.progress_bar.stop()
-                self.progress_bar.grid_remove()
-                self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
-                self.loading_lbl.configure(
-                    text=f"✓ {album_name} erfolgreich gespeichert!",
-                    text_color="#2b712b"
-                )
-                self.after(5000, self._clear_status)
-                self._clear_editor()
-                self._scan_folder(reset_states=False, keep_index=True)
+            if not is_batch:
+                def success_notify():
+                    self.progress_bar.stop()
+                    self.progress_bar.grid_remove()
+                    self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
+                    self.loading_lbl.configure(
+                        text=f"✓ {album_name} erfolgreich gespeichert!",
+                        text_color="#2b712b"
+                    )
+                    self.after(5000, self._clear_status)
+                    self._clear_editor()
+                    self._scan_folder(reset_states=False, keep_index=True)
 
-            self.after(0, success_notify)
+                self.after(0, success_notify)
 
         except Exception as write_err:
             def error_notify(err=write_err):
@@ -2040,7 +2306,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 messagebox.showerror("Schreibfehler", f"Fehler beim Schreiben der Änderungen: {err}")
             self.after(0, error_notify)
         finally:
-            self.after(0, lambda: self.apply_btn.configure(state="normal", text="Speichern & Umbenennen"))
+            if not is_batch:
+                self.after(0, lambda: self.apply_btn.configure(state="normal", text="Speichern & Umbenennen"))
 
     def _open_splitter_dialog(self):
         """Allows selecting a merged MP3 file and losslessly splitting it back into tracks via ID3 CHAP frames."""
@@ -2106,6 +2373,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             
         search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}&tbm=isch"
         webbrowser.open(search_url)
+
+    def _open_series_db_dialog(self):
+        """Opens modal dialog for managing the series knowledge base database."""
+        from series_db_dialog import SeriesDatabaseDialog
+        SeriesDatabaseDialog(self)
 
 if __name__ == "__main__":
     app = HoerspielTaggerGUI()

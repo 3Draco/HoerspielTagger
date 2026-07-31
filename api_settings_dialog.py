@@ -147,6 +147,8 @@ class ApiSettingsDialog(ctk.CTkToplevel):
 
     def _test_connection(self):
         self.test_status_lbl.configure(text="⏳ Verbindung wird geprüft...", text_color="orange")
+        if hasattr(self.parent, "llm_status_lbl"):
+            self.parent.llm_status_lbl.configure(text="🟡 Verbindung wird geprüft...", text_color="orange")
         self.update_idletasks()
 
         url = self.api_url_ent.get().strip()
@@ -159,8 +161,14 @@ class ApiSettingsDialog(ctk.CTkToplevel):
             # Fetch models list
             models = client.models.list()
             self.test_status_lbl.configure(text="✓ Verbindung erfolgreich! LLM erreichbar.", text_color="#2b712b")
+            if hasattr(self.parent, "llm_status_lbl"):
+                self.parent.llm_status_lbl.configure(text="🟢 LLM erreichbar (Verbindungstest)", text_color="#2b712b")
         except Exception as e:
-            self.test_status_lbl.configure(text=f"❌ Fehler: {str(e)[:60]}...", text_color="#7a2b2b")
+            err_str = str(e)
+            self.test_status_lbl.configure(text=f"❌ Fehler: {err_str[:60]}...", text_color="#7a2b2b")
+            if hasattr(self.parent, "llm_status_lbl"):
+                short_err = err_str[:28] + "..." if len(err_str) > 28 else err_str
+                self.parent.llm_status_lbl.configure(text=f"🔴 Nicht erreichbar: {short_err}", text_color="#d9534f")
 
     def _save(self):
         url = self.api_url_ent.get().strip()

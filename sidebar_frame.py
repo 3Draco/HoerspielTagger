@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 import customtkinter as ctk
 from PIL import Image
 
@@ -19,7 +19,8 @@ class SidebarFrame(ctk.CTkFrame):
         on_scan_folder: Callable[[], None],
         on_start_analysis: Callable[[], None],
         on_clear_cache: Callable[[], None],
-        on_open_splitter: Callable[[], None]
+        on_open_splitter: Callable[[], None],
+        on_open_series_db: Optional[Callable[[], None]] = None
     ):
         super().__init__(parent, width=280, corner_radius=0)
         self.parent = parent
@@ -35,8 +36,13 @@ class SidebarFrame(ctk.CTkFrame):
         self.on_start_analysis = on_start_analysis
         self.on_clear_cache = on_clear_cache
         self.on_open_splitter = on_open_splitter
+        self.on_open_series_db = on_open_series_db
 
         self._build_ui()
+
+    def _on_open_series_db(self):
+        if self.on_open_series_db:
+            self.on_open_series_db()
 
     def _build_ui(self):
         # Determine base directory (supporting PyInstaller bundles)
@@ -69,7 +75,11 @@ class SidebarFrame(ctk.CTkFrame):
 
         # API settings button
         self.api_settings_btn = ctk.CTkButton(self, text="⚙️ API & Prompt Einstellungen...", command=self.on_open_api_settings, fg_color="#333333", hover_color="#444444")
-        self.api_settings_btn.grid(row=3, column=0, padx=20, pady=(5, 10), sticky="ew")
+        self.api_settings_btn.grid(row=3, column=0, padx=20, pady=(5, 4), sticky="ew")
+
+        # Series DB Manager button
+        self.series_db_btn = ctk.CTkButton(self, text="📚 Serien-Datenbank...", command=self._on_open_series_db, fg_color="#333333", hover_color="#444444")
+        self.series_db_btn.grid(row=4, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         # Options
         self.opt_lbl = ctk.CTkLabel(self, text="Optionen", font=ctk.CTkFont(size=14, weight="bold"))

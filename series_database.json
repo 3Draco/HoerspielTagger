@@ -1,0 +1,21 @@
+{
+  "alf": {
+    "display_name": "Alf",
+    "genre": "Hörspiel; Comedy"
+  },
+  "fünf freunde": {
+    "display_name": "Fünf Freunde",
+    "genre": "Hörspiel; Abenteuer",
+    "aliases": []
+  },
+  "balduin pfiff": {
+    "display_name": "Balduin Pfiff",
+    "genre": "Hörspiel; Detektiv",
+    "aliases": []
+  },
+  "abenteuer im weltraum": {
+    "display_name": "Abenteuer im Weltraum",
+    "genre": "Hörspiel; Science-Fiction",
+    "aliases": []
+  }
+}

@@ -9,7 +9,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-APP_VERSION = "v1.3.0"
+APP_VERSION = "v1.5.2"
 
 # API Configuration
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
@@ -19,7 +19,7 @@ DISCOGS_API_TOKEN = os.getenv("DISCOGS_API_TOKEN", "")
 
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are a professional metadata tagging assistant for media servers like Plex.\n"
+    "You are a professional metadata tagging assistant for media servers (like Jellyfin, Plex) and offline hardware MP3 players.\n"
     "Your task is to analyze audio drama (Hörspiel) folder names and track information, and return a clean, correct, unified metadata structure.\n\n"
     "CRITICAL RULES FOR AUDIO DRAMAS (HÖRSHPIELE):\n"
     "1. Series Name (series / album_artist):\n"
@@ -35,9 +35,27 @@ DEFAULT_SYSTEM_PROMPT = (
     "     * Folder '03 - Der Fluch des Drachen' -> series_part: 3, episode_title: 'Der Fluch des Drachen'\n"
     "   - NEVER set episode_title to just a number or code like '08' or 'LB08'. It must be the full text name of the episode.\n\n"
     "4. Album Title (album):\n"
-    "   - Always format as zero-padded episode number + dash + clean episode title: '{series_part:02d} - {episode_title}'\n"
-    "   - Example: '08 - Das Grauen von Blackwood Castle'\n\n"
-    "5. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
+    "   - Format for maximum hardware compatibility: Include the Series Name, zero-padded episode number, and clean episode title:\n"
+    "     '{series} {series_part:02d} - {episode_title}'\n"
+    "   - Example: 'Larry Brent 08 - Das Grauen von Blackwood Castle'\n\n"
+    "5. GENRE & SUBGENRE RULES:\n"
+    "   - 'primary_genre' MUST ALWAYS be 'Hörspiel'.\n"
+    "   - 'secondary_genre' MUST be selected from ONE of the following allowed categories based on context:\n"
+    "     * 'Horror' (Grusel, Dämonen, Monster, Geister)\n"
+    "     * 'Krimi' (Kriminalfälle, Polizei, Mordermittlung)\n"
+    "     * 'Detektiv' (Jugend-Detektive, Rätsel, Spürnasen)\n"
+    "     * 'Science-Fiction' (Weltraum, Zukunft, Zukunfts-Technologie)\n"
+    "     * 'Fantasy' (Magie, Mythen, Fabelwesen)\n"
+    "     * 'Abenteuer' (Reisen, Schätze, Action, Wildnis)\n"
+    "     * 'Jugend' (Jugendhörspiele, Schule, Alltag)\n"
+    "     * 'Kinder' (Vorschule, Märchen, Kleinkinder)\n"
+    "     * 'Comedy' (Humor, Satire, Klamauk)\n"
+    "     * 'Thriller' (Psychothriller, Spionage, Spannung)\n"
+    "     * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)\n"
+    "     If none fits accurately, default to 'Allgemein'.\n"
+    "   - 'formatted_genre' MUST combine primary and secondary genre with a semicolon and space for maximum media server & MP3 player compatibility:\n"
+    "     'Hörspiel; {secondary_genre}' (e.g., 'Hörspiel; Horror' or 'Hörspiel; Detektiv')\n\n"
+    "6. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
     "   - The metadata and track titles are in German.\n"
     "   - ALWAYS preserve German umlauts (ä, ö, ü, Ä, Ö, Ü, ß) and special characters directly in UTF-8 format.\n"
     "   - NEVER convert German umlauts into ?, ASCII replacements (ae, oe, ue), or unicode escapes (\\uXXXX).\n"
@@ -46,12 +64,15 @@ DEFAULT_SYSTEM_PROMPT = (
     "You must return ONLY a single, valid JSON object matching this schema:\n"
     "{\n"
     '  "album_artist": "Larry Brent",\n'
+    '  "artist": "Larry Brent",\n'
     '  "series": "Larry Brent",\n'
     '  "series_part": 8,\n'
     '  "episode_title": "Das Grauen von Blackwood Castle",\n'
-    '  "album": "08 - Das Grauen von Blackwood Castle",\n'
+    '  "album": "Larry Brent 08 - Das Grauen von Blackwood Castle",\n'
     '  "year": 1983,\n'
-    '  "genre": "Hörspiel",\n'
+    '  "primary_genre": "Hörspiel",\n'
+    '  "secondary_genre": "Horror",\n'
+    '  "formatted_genre": "Hörspiel; Horror",\n'
     '  "tracks": [\n'
     "    {\n"
     '      "original_filename": "01 - Intro.mp3",\n'

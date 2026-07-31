@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 import customtkinter as ctk
 
 class CoverSourcesDialog(ctk.CTkToplevel):
@@ -96,7 +96,8 @@ class CoverPanelFrame(ctk.CTkFrame):
         on_open_cover_chooser: Callable[[], None],
         on_load_manual_cover: Callable[[], None],
         on_google_cover_search: Callable[[], None],
-        on_apply_metadata: Callable[[], None]
+        on_apply_metadata: Callable[[], None],
+        on_apply_all_metadata: Optional[Callable[[], None]] = None
     ):
         super().__init__(parent, width=360)
         self.parent = parent
@@ -109,6 +110,7 @@ class CoverPanelFrame(ctk.CTkFrame):
         self.on_load_manual_cover = on_load_manual_cover
         self.on_google_cover_search = on_google_cover_search
         self.on_apply_metadata = on_apply_metadata
+        self.on_apply_all_metadata = on_apply_all_metadata
 
         # Source variables
         self.source_embedded_var = ctk.BooleanVar(value=True)
@@ -165,8 +167,11 @@ class CoverPanelFrame(ctk.CTkFrame):
         self.google_search_btn = ctk.CTkButton(self, text="🌐 Google Bildersuche...", command=self.on_google_cover_search, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")
         self.google_search_btn.grid(row=7, column=0, padx=20, pady=4, sticky="ew")
 
-        self.apply_btn = ctk.CTkButton(self, text="Speichern & Umbenennen", command=self.on_apply_metadata, state="disabled", fg_color="#1f538d", hover_color="#143960")
-        self.apply_btn.grid(row=8, column=0, padx=20, pady=(15, 20), sticky="ew")
+        self.apply_btn = ctk.CTkButton(self, text="Einzelnes Album speichern", command=self.on_apply_metadata, state="disabled", fg_color="#1f538d", hover_color="#143960")
+        self.apply_btn.grid(row=8, column=0, padx=20, pady=(15, 4), sticky="ew")
+
+        self.apply_all_btn = ctk.CTkButton(self, text="💾 Alle Alben auf einmal speichern", command=self.on_apply_all_metadata, state="disabled", fg_color="#2b712b", hover_color="#1e4e1e", font=ctk.CTkFont(weight="bold"))
+        self.apply_all_btn.grid(row=9, column=0, padx=20, pady=(4, 20), sticky="ew")
 
     def _open_portals_dialog(self):
         CoverSourcesDialog(self.parent, self)

@@ -34,11 +34,19 @@ class AlbumMetadata(BaseModel):
     album: str = Field(default="", description="Full album title format: '04 - Episode Title'.")
     episode_title: Optional[str] = Field(default=None, description="Clean episode title without episode number prefix.")
     year: Optional[int] = Field(default=None, description="The release year.")
-    genre: str = Field(default="Hörspiel", description="Genre fixed to 'Hörspiel'.")
+    primary_genre: Optional[str] = Field(default=None, description="Primary genre.")
+    secondary_genre: Optional[str] = Field(default=None, description="Secondary genre / subgenre.")
+    formatted_genre: Optional[str] = Field(default=None, description="Formatted genre string, e.g., 'Hörspiel; Horror'.")
+    genre: str = Field(default="Hörspiel", description="Genre string for ID3 tags.")
     tracks: List[TrackMetadata] = Field(default_factory=list, description="List of tracks/chapters.")
     chapters: Optional[List[TrackMetadata]] = Field(default=None, description="Alias for tracks.")
 
     def model_post_init(self, __context: Any) -> None:
+        if self.formatted_genre:
+            self.genre = self.formatted_genre
+        elif self.primary_genre and self.secondary_genre:
+            self.genre = f"{self.primary_genre}; {self.secondary_genre}"
+
         if self.series_name and not self.album_artist:
             self.album_artist = self.series_name
         if self.series_name and not self.series:
