@@ -24,6 +24,7 @@ from sidebar_frame import SidebarFrame
 from metadata_form_frame import MetadataFormFrame
 from cover_panel_frame import CoverPanelFrame
 from summary_dialog import SummaryDialog
+from batch_edit_tab import BatchEditTab
 import config
 
 class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
@@ -330,6 +331,15 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.content_tabview.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.tab_scan = self.content_tabview.add("Scannen und Ordnerstruktur")
         self.tab_edit = self.content_tabview.add("Metadaten bearbeiten und taggen")
+        self.tab_batch = self.content_tabview.add("⚡ Massenbearbeitung")
+
+        # Massenbearbeitung UI Component
+        self.batch_tab_ui = BatchEditTab(
+            self.tab_batch,
+            get_scan_results_cb=lambda: self.scan_results,
+            on_status_update_cb=lambda msg, color: self.cover_status_lbl.configure(text=msg, text_color=color) if hasattr(self, 'cover_status_lbl') else None
+        )
+        self.batch_tab_ui.pack(expand=True, fill="both")
 
         # ---------------- TAB 1: Scan Log & Drop Zone ----------------
         self.tab_scan.grid_rowconfigure(0, weight=0) # Drop Zone fixed height
@@ -845,6 +855,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 if t0.get("genre"):
                     genre_str = t0["genre"]
 
+                composer_str = t0.get("composer") or ""
+                comment_str = t0.get("comment") or ""
+                disc_str = str(t0.get("disc_number")) if t0.get("disc_number") else ""
+
             form_data = {
                 "album_artist": album_artist,
                 "album": album_name,
@@ -852,7 +866,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "series": album_artist,
                 "series_part": series_part,
                 "year": year_str,
-                "genre": genre_str
+                "genre": genre_str,
+                "composer": composer_str,
+                "disc_number": disc_str,
+                "comment": comment_str
             }
 
             track_rows = []
@@ -988,6 +1005,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self._initialize_album_states(reset=reset_states)
             self._update_album_nav()
             self._restore_album_state(self.current_album_idx)
+            if hasattr(self, 'batch_tab_ui'):
+                self.batch_tab_ui.refresh_file_list()
 
         except Exception as e:
             messagebox.showerror("Fehler beim Scannen", str(e))
@@ -2199,6 +2218,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             except Exception as db_err:
                 print(f"[SeriesDB Info] {db_err}")
 
+        composer = self.form_entries["composer"].get().strip() if "composer" in self.form_entries else None
+        comment = self.form_entries["comment"].get().strip() if "comment" in self.form_entries else None
+        disc_number = self.form_entries["disc_number"].get().strip() if "disc_number" in self.form_entries else None
+
         folder_path = Path(album["folder_path"])
         is_flat = album.get("flat_mode", False)
 
@@ -2249,6 +2272,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     track_number=change["track_number"],
                     genre=genre,
                     year=year,
+                    composer=composer,
+                    comment=comment,
+                    disc_number=disc_number,
                     cover_bytes=self.cover_bytes
                 )
 
@@ -2314,6 +2340,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                             track_number=episode_num,
                             genre=genre,
                             year=year,
+                            composer=composer,
+                            comment=comment,
+                            disc_number=disc_number,
                             cover_bytes=self.cover_bytes,
                             chapters=chapter_data
                         )
