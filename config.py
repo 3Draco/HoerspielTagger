@@ -9,7 +9,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-APP_VERSION = "v1.6.0"
+APP_VERSION = "v1.6.1"
 
 # API Configuration
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")

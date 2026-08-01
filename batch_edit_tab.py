@@ -31,21 +31,26 @@ class BatchEditTab(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Header Title
+        # Header Frame for Title and Subtitle
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.grid(row=0, column=0, columnspan=2, padx=15, pady=(10, 5), sticky="ew")
+        header_frame.grid_columnconfigure(0, weight=1)
+
         header_lbl = ctk.CTkLabel(
-            self,
+            header_frame,
             text="⚡ Massenbearbeitung (Batch Tag Edit)",
-            font=ctk.CTkFont(size=16, weight="bold")
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=("#1f538d", "#38bdf8")
         )
-        header_lbl.grid(row=0, column=0, columnspan=2, padx=15, pady=(15, 5), sticky="w")
+        header_lbl.grid(row=0, column=0, sticky="w", pady=(0, 2))
 
         sub_lbl = ctk.CTkLabel(
-            self,
+            header_frame,
             text="Wähle Dateien aus. Gleiche Tags werden angezeigt; bei verschiedenen Tags bietet das Dropdown alle vorhandenen Werte an. Nur geänderte/aktivierte Tags werden überschrieben.",
             font=ctk.CTkFont(size=12),
-            text_color="gray"
+            text_color=("#475569", "#cbd5e1")
         )
-        sub_lbl.grid(row=0, column=0, columnspan=2, padx=15, pady=(0, 10), sticky="w")
+        sub_lbl.grid(row=1, column=0, sticky="w", pady=(0, 5))
 
         # LEFT FRAME: File Selection List
         left_frame = ctk.CTkFrame(self)
