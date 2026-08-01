@@ -1,7 +1,7 @@
 # Hörspiel Tagger
 
 Hörspiel Tagger
-Version: 1.6.9 | Developer: 3Draco
+Version: 1.7.0 | Developer: 3Draco
 
 ## License & Disclaimer
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
@@ -30,13 +30,17 @@ Automatically saves window positions and form configurations bound to your hardw
 5. Modern GUI & CLI
 Easy-to-use CustomTkinter interface with drag-and-drop support, as well as CLI argument processing for automated workflows.
 
-6. Local AI Ready
+6. Local AI Ready & Recommended Setup
 This tool works 100% offline and free of API costs using local LLM servers like **LM Studio** (`http://127.0.0.1:1234/v1`).
+
+> 💡 **Tipp für beste Ergebnisse (LM Studio & MCP WebSearch)**:
+> Für optimale Ergebnisse – insbesondere für automatische, echte Klappentexte und Inhaltsangaben im Kommentar-Feld – empfiehlt es sich, in **LM Studio** den **MCP Server WebSearch** einzubinden.
+> **Wichtig**: Stelle in den LM Studio Einstellungen die MCP-Berechtigung von `Ask` (Nachfragen) auf `Allow` (Erlauben), damit das Sprachmodell ohne Unterbrechung autonom live im Web nach Folgen-Details und Klappentexten suchen kann.
 
 --------------------------------------------------------
 
 Hörspiel Tagger
-Version: 1.6.9 | Developer: 3Draco
+Version: 1.7.0 | Developer: 3Draco
 
 + Initial release with AI-powered tagging, lossless FFmpeg merge/split, CustomTkinter GUI, hardware-bound AES encryption, and iTunes/MusicBrainz cover search.
 
