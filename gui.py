@@ -1028,45 +1028,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.nav_prev_btn.configure(state="normal" if self.current_album_idx > 0 else "disabled")
         self.nav_next_btn.configure(state="normal" if self.current_album_idx < total - 1 else "disabled")
 
-    def _initialize_album_states(self, reset=True):
-        """Initializes default album states for scanned folders using initial MP3 ID3 tags."""
-        if reset or not self.album_states:
-            self.album_states = {}
 
-        for album in self.scan_results:
-            state_key = album["tracks"][0]["filepath"] if album.get("flat_mode") else album["folder_path"]
-            if state_key not in self.album_states or reset:
-                orig_tracks = album.get("tracks", [])
-                t0 = orig_tracks[0] if orig_tracks else {}
-
-                track_rows = []
-                for i_t, track in enumerate(orig_tracks):
-                    row_num = i_t + 1
-                    track_rows.append({
-                        "original_filename": track["filename"],
-                        "filepath": track["filepath"],
-                        "clean_title": track["title"] or Path(track["filename"]).stem,
-                        "track_number": track["track_number"] or row_num
-                    })
-
-                form_data = {
-                    "album_artist": t0.get("album_artist") or "",
-                    "album": t0.get("album") or "",
-                    "episode_title": t0.get("title") or "",
-                    "series": t0.get("artist") or "",
-                    "series_part": str(t0.get("track_number")) if t0.get("track_number") is not None else "",
-                    "year": str(t0.get("year")) if t0.get("year") is not None else "",
-                    "genre": t0.get("genre") or ""
-                }
-
-                self.album_states[state_key] = {
-                    "metadata": None,
-                    "form_data": form_data,
-                    "track_rows": track_rows,
-                    "cover_bytes": None,
-                    "cover_status": "Kein Cover geladen",
-                    "cover_status_color": "gray"
-                }
 
     def _save_current_album_state(self):
         """Saves current editor form fields, track titles, track order, and cover data for current_album_idx."""
