@@ -56,19 +56,149 @@ class SeriesDatabase:
             return res if res else ["Hörspiel"]
         return ["Hörspiel"]
 
+    DEFAULT_SERIES_DB = {
+        "die drei ???": {
+            "display_name": "Die drei ???",
+            "genres": ["Hörspiel", "Detektiv"],
+            "aliases": ["Drei ???", "Die 3 ???", "D3?"],
+            "composer": "Carsten Bohn",
+            "publisher": "EUROPA",
+            "comment": "Jugend-Detektiv Hörspiel von EUROPA."
+        },
+        "tkkg": {
+            "display_name": "TKKG",
+            "genres": ["Hörspiel", "Krimi"],
+            "aliases": ["T.K.K.G."],
+            "composer": "Carsten Bohn",
+            "publisher": "EUROPA",
+            "comment": "Jugend-Krimi Hörspiel von EUROPA."
+        },
+        "fünf freunde": {
+            "display_name": "Fünf Freunde",
+            "genres": ["Hörspiel", "Abenteuer"],
+            "aliases": ["5 Freunde", "F5"],
+            "composer": "Enid Blyton",
+            "publisher": "EUROPA",
+            "comment": "Abenteuer-Hörspiel nach Enid Blyton."
+        },
+        "larry brent": {
+            "display_name": "Larry Brent",
+            "genres": ["Hörspiel", "Horror"],
+            "aliases": ["LB"],
+            "composer": "H.G. Francis",
+            "publisher": "EUROPA",
+            "comment": "Grusel-Hörspiel nach den Romanen von A. F. Morland."
+        },
+        "macabros": {
+            "display_name": "Macabros",
+            "genres": ["Hörspiel", "Horror"],
+            "aliases": ["MB"],
+            "composer": "H.G. Francis",
+            "publisher": "EUROPA",
+            "comment": "Dämonen-Hörspiel von H.G. Francis."
+        },
+        "bibi blocksberg": {
+            "display_name": "Bibi Blocksberg",
+            "genres": ["Hörspiel", "Kinder"],
+            "aliases": ["Bibi"],
+            "composer": "Elfie Donnelly",
+            "publisher": "Kiddinx",
+            "comment": "Kinder-Hörspiel von Kiddinx."
+        },
+        "bibi und tina": {
+            "display_name": "Bibi und Tina",
+            "genres": ["Hörspiel", "Jugend"],
+            "aliases": ["Bibi & Tina"],
+            "composer": "Elfie Donnelly",
+            "publisher": "Kiddinx",
+            "comment": "Pferde-Abenteuer Hörspiel von Kiddinx."
+        },
+        "benjamin blümchen": {
+            "display_name": "Benjamin Blümchen",
+            "genres": ["Hörspiel", "Kinder"],
+            "aliases": ["Benjamin"],
+            "composer": "Elfie Donnelly",
+            "publisher": "Kiddinx",
+            "comment": "Kinder-Hörspiel von Kiddinx."
+        },
+        "geisterjäger john sinclair": {
+            "display_name": "Geisterjäger John Sinclair",
+            "genres": ["Hörspiel", "Horror"],
+            "aliases": ["John Sinclair", "JS"],
+            "composer": "Jason Dark",
+            "publisher": "Lübbe Audio",
+            "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."
+        },
+        "gabriel burns": {
+            "display_name": "Gabriel Burns",
+            "genres": ["Hörspiel", "Thriller"],
+            "aliases": ["GB"],
+            "composer": "Volker Sponholz",
+            "publisher": "Folgenreich",
+            "comment": "Mystery-Hörspielserie von Folgenreich."
+        },
+        "jan tenner": {
+            "display_name": "Jan Tenner",
+            "genres": ["Hörspiel", "Science-Fiction"],
+            "aliases": ["JT"],
+            "composer": "Dick Farlow",
+            "publisher": "Karussell",
+            "comment": "Science-Fiction Hörspielserie von Karussell."
+        },
+        "sherlock holmes": {
+            "display_name": "Sherlock Holmes",
+            "genres": ["Hörspiel", "Krimi"],
+            "aliases": ["SH"],
+            "composer": "Arthur Conan Doyle",
+            "publisher": "Maritim",
+            "comment": "Kriminal-Hörspiel nach Sir Arthur Conan Doyle."
+        },
+        "offenbarung 23": {
+            "display_name": "Offenbarung 23",
+            "genres": ["Hörspiel", "Thriller"],
+            "aliases": ["O23"],
+            "composer": "Jan Gaspard",
+            "publisher": "Lübbe Audio",
+            "comment": "Verschwörungs-Thriller Hörspiel."
+        },
+        "alf": {
+            "display_name": "ALF",
+            "genres": ["Hörspiel", "Comedy"],
+            "aliases": ["Alf"],
+            "composer": "Siegfried Rabe",
+            "publisher": "Karussell",
+            "comment": "Kult-Comedy Hörspiel nach der US-Sitcom."
+        }
+    }
+
     @classmethod
     def load_db(cls) -> Dict[str, Dict[str, Any]]:
         path = cls._get_db_file_path()
         if not path.exists():
-            return {}
+            # Seed default JSON database
+            cls.save_db(cls.DEFAULT_SERIES_DB)
+            return dict(cls.DEFAULT_SERIES_DB)
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
+                    # Ensure defaults exist in DB
+                    updated = False
+                    for default_key, default_val in cls.DEFAULT_SERIES_DB.items():
+                        if default_key not in data:
+                            data[default_key] = default_val
+                            updated = True
+                        else:
+                            for field in ["composer", "publisher", "comment"]:
+                                if field not in data[default_key]:
+                                    data[default_key][field] = default_val[field]
+                                    updated = True
+                    if updated:
+                        cls.save_db(data)
                     return data
         except Exception as e:
             print(f"[SeriesDB] Error loading database: {e}")
-        return {}
+        return dict(cls.DEFAULT_SERIES_DB)
 
     @classmethod
     def save_db(cls, db: Dict[str, Dict[str, Any]]) -> bool:
@@ -104,7 +234,10 @@ class SeriesDatabase:
                 "display_name": entry.get("display_name", query.strip()),
                 "genres": genres_list,
                 "genre": "; ".join(genres_list),
-                "aliases": entry.get("aliases", [])
+                "aliases": entry.get("aliases", []),
+                "composer": entry.get("composer", ""),
+                "publisher": entry.get("publisher", ""),
+                "comment": entry.get("comment", "")
             }
 
         # 2. Match against display_name or aliases
@@ -118,7 +251,10 @@ class SeriesDatabase:
                     "display_name": disp,
                     "genres": genres_list,
                     "genre": "; ".join(genres_list),
-                    "aliases": aliases
+                    "aliases": aliases,
+                    "composer": entry.get("composer", ""),
+                    "publisher": entry.get("publisher", ""),
+                    "comment": entry.get("comment", "")
                 }
             for alias in aliases:
                 if cls._normalize_key(alias) == norm_query:
@@ -126,7 +262,10 @@ class SeriesDatabase:
                         "display_name": disp,
                         "genres": genres_list,
                         "genre": "; ".join(genres_list),
-                        "aliases": aliases
+                        "aliases": aliases,
+                        "composer": entry.get("composer", ""),
+                        "publisher": entry.get("publisher", ""),
+                        "comment": entry.get("comment", "")
                     }
         return None
 
@@ -178,7 +317,16 @@ class SeriesDatabase:
         return None
 
     @classmethod
-    def set_series_genre(cls, series_name: str, genre: Any, aliases: Optional[Any] = None, overwrite_existing: bool = True) -> bool:
+    def set_series_genre(
+        cls,
+        series_name: str,
+        genre: Any,
+        aliases: Optional[Any] = None,
+        composer: Optional[str] = None,
+        publisher: Optional[str] = None,
+        comment: Optional[str] = None,
+        overwrite_existing: bool = True
+    ) -> bool:
         if not series_name or not genre:
             return False
         norm_key = cls._normalize_key(series_name)
@@ -198,7 +346,10 @@ class SeriesDatabase:
             "display_name": display_name,
             "genres": genres_list,
             "genre": "; ".join(genres_list),
-            "aliases": parsed_aliases
+            "aliases": parsed_aliases,
+            "composer": composer if composer is not None else existing.get("composer", ""),
+            "publisher": publisher if publisher is not None else existing.get("publisher", ""),
+            "comment": comment if comment is not None else existing.get("comment", "")
         }
         return cls.save_db(db)
 
@@ -235,7 +386,7 @@ class SeriesDatabase:
 
     @classmethod
     def get_prompt_aliases_summary(cls) -> str:
-        """Formats a clean list of series acronyms/aliases for LLM system prompt context."""
+        """Formats a clean list of series acronyms/aliases, genres, composer, and publisher for LLM system prompt context."""
         db = cls.load_db()
         lines = []
         for norm_key, data in db.items():
@@ -243,9 +394,21 @@ class SeriesDatabase:
             aliases = data.get("aliases", [])
             genres_list = cls._parse_genres(data.get("genres") or data.get("genre"))
             gen_str = "; ".join(genres_list)
+            comp = data.get("composer", "")
+            pub = data.get("publisher", "")
+            
+            extra = []
+            if comp:
+                extra.append(f"Komponist/Autor: '{comp}'")
+            if pub:
+                extra.append(f"Label: '{pub}'")
+            extra_str = f" ({', '.join(extra)})" if extra else ""
+
             if aliases:
                 alias_str = ", ".join(aliases)
-                lines.append(f"- Kürzel '{alias_str}' -> Serie: '{disp}' (Genre: '{gen_str}')")
+                lines.append(f"- Kürzel '{alias_str}' -> Serie: '{disp}' (Genre: '{gen_str}'){extra_str}")
+            elif disp:
+                lines.append(f"- Serie: '{disp}' (Genre: '{gen_str}'){extra_str}")
         return "\n".join(lines)
 
     @classmethod
@@ -261,28 +424,11 @@ class SeriesDatabase:
     def get_known_series_defaults(cls, series_query: str) -> Optional[Dict[str, str]]:
         if not series_query:
             return None
-        norm = cls._normalize_key(series_query)
-        
-        known_map = {
-            "die drei ???": {"composer": "Carsten Bohn", "publisher": "EUROPA", "comment": "Jugend-Detektiv Hörspiel von EUROPA."},
-            "die drei fragezeichen": {"composer": "Carsten Bohn", "publisher": "EUROPA", "comment": "Jugend-Detektiv Hörspiel von EUROPA."},
-            "tkkg": {"composer": "Carsten Bohn", "publisher": "EUROPA", "comment": "Jugend-Krimi Hörspiel von EUROPA."},
-            "fünf freunde": {"composer": "Enid Blyton", "publisher": "EUROPA", "comment": "Abenteuer-Hörspiel nach Enid Blyton."},
-            "larry brent": {"composer": "H.G. Francis", "publisher": "EUROPA", "comment": "Grusel-Hörspiel nach den Romanen von A. F. Morland."},
-            "macabros": {"composer": "H.G. Francis", "publisher": "EUROPA", "comment": "Dämonen-Hörspiel von H.G. Francis."},
-            "bibi blocksberg": {"composer": "Elfie Donnelly", "publisher": "Kiddinx", "comment": "Kinder-Hörspiel von Kiddinx."},
-            "bibi und tina": {"composer": "Elfie Donnelly", "publisher": "Kiddinx", "comment": "Pferde-Abenteuer Hörspiel von Kiddinx."},
-            "benjamin blümchen": {"composer": "Elfie Donnelly", "publisher": "Kiddinx", "comment": "Kinder-Hörspiel von Kiddinx."},
-            "geisterjäger john sinclair": {"composer": "Jason Dark", "publisher": "Lübbe Audio", "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."},
-            "john sinclair": {"composer": "Jason Dark", "publisher": "Lübbe Audio", "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."},
-            "gabriel burns": {"composer": "Volker Sponholz", "publisher": "Folgenreich", "comment": "Mystery-Hörspielserie von Folgenreich."},
-            "jan tenner": {"composer": "Dick Farlow", "publisher": "Karussell", "comment": "Science-Fiction Hörspielserie von Karussell."},
-            "sherlock holmes": {"composer": "Arthur Conan Doyle", "publisher": "Maritim", "comment": "Kriminal-Hörspiel nach Sir Arthur Conan Doyle."},
-            "offenbarung 23": {"composer": "Jan Gaspard", "publisher": "Lübbe Audio", "comment": "Verschwörungs-Thriller Hörspiel."},
-            "alf": {"composer": "Siegfried Rabe", "publisher": "Karussell", "comment": "Kult-Comedy Hörspiel nach der US-Sitcom."}
-        }
-
-        for k, info in known_map.items():
-            if k in norm or norm in k:
-                return info
+        info = cls.get_series_info(series_query)
+        if info and (info.get("composer") or info.get("publisher") or info.get("comment")):
+            return {
+                "composer": info.get("composer", ""),
+                "publisher": info.get("publisher", ""),
+                "comment": info.get("comment", "")
+            }
         return None

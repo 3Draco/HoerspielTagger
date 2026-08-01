@@ -6,6 +6,182 @@
       "Comedy"
     ],
     "genre": "Hörspiel; Comedy",
-    "aliases": []
+    "aliases": [],
+    "composer": "Siegfried Rabe",
+    "publisher": "Karussell",
+    "comment": "Kult-Comedy Hörspiel nach der US-Sitcom."
+  },
+  "die drei ???": {
+    "display_name": "Die drei ???",
+    "genres": [
+      "Hörspiel",
+      "Detektiv"
+    ],
+    "aliases": [
+      "Drei ???",
+      "Die 3 ???",
+      "D3?"
+    ],
+    "composer": "Carsten Bohn",
+    "publisher": "EUROPA",
+    "comment": "Jugend-Detektiv Hörspiel von EUROPA."
+  },
+  "tkkg": {
+    "display_name": "TKKG",
+    "genres": [
+      "Hörspiel",
+      "Krimi"
+    ],
+    "aliases": [
+      "T.K.K.G."
+    ],
+    "composer": "Carsten Bohn",
+    "publisher": "EUROPA",
+    "comment": "Jugend-Krimi Hörspiel von EUROPA."
+  },
+  "fünf freunde": {
+    "display_name": "Fünf Freunde",
+    "genres": [
+      "Hörspiel",
+      "Abenteuer"
+    ],
+    "aliases": [
+      "5 Freunde",
+      "F5"
+    ],
+    "composer": "Enid Blyton",
+    "publisher": "EUROPA",
+    "comment": "Abenteuer-Hörspiel nach Enid Blyton."
+  },
+  "larry brent": {
+    "display_name": "Larry Brent",
+    "genres": [
+      "Hörspiel",
+      "Horror"
+    ],
+    "aliases": [
+      "LB"
+    ],
+    "composer": "H.G. Francis",
+    "publisher": "EUROPA",
+    "comment": "Grusel-Hörspiel nach den Romanen von A. F. Morland."
+  },
+  "macabros": {
+    "display_name": "Macabros",
+    "genres": [
+      "Hörspiel",
+      "Horror"
+    ],
+    "aliases": [
+      "MB"
+    ],
+    "composer": "H.G. Francis",
+    "publisher": "EUROPA",
+    "comment": "Dämonen-Hörspiel von H.G. Francis."
+  },
+  "bibi blocksberg": {
+    "display_name": "Bibi Blocksberg",
+    "genres": [
+      "Hörspiel",
+      "Kinder"
+    ],
+    "aliases": [
+      "Bibi"
+    ],
+    "composer": "Elfie Donnelly",
+    "publisher": "Kiddinx",
+    "comment": "Kinder-Hörspiel von Kiddinx."
+  },
+  "bibi und tina": {
+    "display_name": "Bibi und Tina",
+    "genres": [
+      "Hörspiel",
+      "Jugend"
+    ],
+    "aliases": [
+      "Bibi & Tina"
+    ],
+    "composer": "Elfie Donnelly",
+    "publisher": "Kiddinx",
+    "comment": "Pferde-Abenteuer Hörspiel von Kiddinx."
+  },
+  "benjamin blümchen": {
+    "display_name": "Benjamin Blümchen",
+    "genres": [
+      "Hörspiel",
+      "Kinder"
+    ],
+    "aliases": [
+      "Benjamin"
+    ],
+    "composer": "Elfie Donnelly",
+    "publisher": "Kiddinx",
+    "comment": "Kinder-Hörspiel von Kiddinx."
+  },
+  "geisterjäger john sinclair": {
+    "display_name": "Geisterjäger John Sinclair",
+    "genres": [
+      "Hörspiel",
+      "Horror"
+    ],
+    "aliases": [
+      "John Sinclair",
+      "JS"
+    ],
+    "composer": "Jason Dark",
+    "publisher": "Lübbe Audio",
+    "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."
+  },
+  "gabriel burns": {
+    "display_name": "Gabriel Burns",
+    "genres": [
+      "Hörspiel",
+      "Thriller"
+    ],
+    "aliases": [
+      "GB"
+    ],
+    "composer": "Volker Sponholz",
+    "publisher": "Folgenreich",
+    "comment": "Mystery-Hörspielserie von Folgenreich."
+  },
+  "jan tenner": {
+    "display_name": "Jan Tenner",
+    "genres": [
+      "Hörspiel",
+      "Science-Fiction"
+    ],
+    "aliases": [
+      "JT"
+    ],
+    "composer": "Dick Farlow",
+    "publisher": "Karussell",
+    "comment": "Science-Fiction Hörspielserie von Karussell."
+  },
+  "sherlock holmes": {
+    "display_name": "Sherlock Holmes",
+    "genres": [
+      "Hörspiel",
+      "Krimi"
+    ],
+    "aliases": [
+      "SH"
+    ],
+    "composer": "Arthur Conan Doyle",
+    "publisher": "Maritim",
+    "comment": "Kriminal-Hörspiel nach Sir Arthur Conan Doyle."
+  },
+  "offenbarung 23": {
+    "display_name": "Offenbarung 23",
+    "genres": [
+      "Hörspiel",
+      "Thriller"
+    ],
+    "aliases": [
+      "O23"
+    ],
+    "composer": "Jan Gaspard",
+    "publisher": "Lübbe Audio",
+    "comment": "Verschwörungs-Thriller Hörspiel."
   }
 }
