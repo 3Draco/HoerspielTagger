@@ -1,7 +1,7 @@
 # Hörspiel Tagger
 
 Hörspiel Tagger
-Version: 1.7.1 | Developer: 3Draco
+Version: 1.7.2 | Developer: 3Draco
 
 ## License & Disclaimer
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
@@ -40,7 +40,7 @@ This tool works 100% offline and free of API costs using local LLM servers like 
 --------------------------------------------------------
 
 Hörspiel Tagger
-Version: 1.7.1 | Developer: 3Draco
+Version: 1.7.2 | Developer: 3Draco
 
 + Initial release with AI-powered tagging, lossless FFmpeg merge/split, CustomTkinter GUI, hardware-bound AES encryption, and iTunes/MusicBrainz cover search.
 

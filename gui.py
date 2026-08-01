@@ -1157,7 +1157,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             "series": t0.get("artist") or "",
             "series_part": str(t0.get("track_number")) if t0.get("track_number") is not None else "",
             "year": str(t0.get("year")) if t0.get("year") is not None else "",
-            "genre": t0.get("genre") or ""
+            "genre": t0.get("genre") or "",
+            "composer": t0.get("composer") or t0.get("author") or "",
+            "publisher": t0.get("publisher") or "",
+            "disc_number": str(t0.get("disc_number")) if t0.get("disc_number") is not None else "",
+            "comment": t0.get("comment") or ""
         }
 
         for k, curr_val in orig_tags.items():

@@ -89,11 +89,14 @@ class BatchEditTab(ctk.CTkFrame):
 
         fields_def = [
             ("album_artist", "Album-Interpret / Serie"),
-            ("artist", "Track-Interpret"),
-            ("composer", "Komponist / Autor"),
-            ("publisher", "Label / Verlag (z. B. EUROPA)"),
+            ("album", "Album (Folgentitel)"),
+            ("episode_title", "Reiner Folgentitel (Track-Titel)"),
+            ("artist", "Serie / Track-Interpret"),
+            ("series_part", "Folgennummer / Track-Nr."),
             ("genre", "Genre (z. B. Hörspiel; Comedy)"),
             ("year", "Erscheinungsjahr"),
+            ("composer", "Komponist / Autor"),
+            ("publisher", "Label / Verlag (z. B. EUROPA)"),
             ("disc_number", "Disc-Nummer (z. B. 1)"),
             ("comment", "Kommentar")
         ]
@@ -205,11 +208,14 @@ class BatchEditTab(ctk.CTkFrame):
 
         field_values: Dict[str, List[str]] = {
             "album_artist": [],
+            "album": [],
+            "episode_title": [],
             "artist": [],
-            "composer": [],
-            "publisher": [],
+            "series_part": [],
             "genre": [],
             "year": [],
+            "composer": [],
+            "publisher": [],
             "disc_number": [],
             "comment": []
         }
@@ -220,9 +226,17 @@ class BatchEditTab(ctk.CTkFrame):
             if album_artist:
                 field_values["album_artist"].append(album_artist)
 
+            alb_title = album.get("album") or (tracks[0].get("album") if tracks else "") or ""
+            if alb_title:
+                field_values["album"].append(alb_title)
+
             for t in tracks:
                 if t.get("artist"):
                     field_values["artist"].append(t["artist"])
+                if t.get("title"):
+                    field_values["episode_title"].append(t["title"])
+                if t.get("track_number") is not None:
+                    field_values["series_part"].append(str(t["track_number"]))
                 if t.get("composer"):
                     field_values["composer"].append(t["composer"])
                 if t.get("publisher"):
@@ -329,11 +343,19 @@ class BatchEditTab(ctk.CTkFrame):
 
                         # Merge overloads for activated fields
                         new_album_artist = active_fields["album_artist"] if "album_artist" in active_fields else orig_album_artist
+                        new_album = active_fields["album"] if "album" in active_fields else orig_album
+                        new_title = active_fields["episode_title"] if "episode_title" in active_fields else orig_title
                         new_artist = active_fields["artist"] if "artist" in active_fields else orig_artist
                         new_composer = active_fields["composer"] if "composer" in active_fields else orig_composer
                         new_publisher = active_fields["publisher"] if "publisher" in active_fields else orig_publisher
                         new_comment = active_fields["comment"] if "comment" in active_fields else orig_comment
                         new_disc = active_fields["disc_number"] if "disc_number" in active_fields else orig_disc
+
+                        if "series_part" in active_fields:
+                            raw_trck = active_fields["series_part"]
+                            new_trck = int(raw_trck) if (raw_trck and raw_trck.isdigit()) else orig_trck
+                        else:
+                            new_trck = orig_trck
 
                         if "year" in active_fields:
                             raw_year = active_fields["year"]
@@ -350,11 +372,11 @@ class BatchEditTab(ctk.CTkFrame):
                         # Write updated tags cleanly
                         TagWriter.write_tags(
                             filepath=filepath,
-                            title=orig_title,
-                            album=orig_album,
+                            title=new_title,
+                            album=new_album,
                             artist=new_artist,
                             album_artist=new_album_artist,
-                            track_number=orig_trck,
+                            track_number=new_trck,
                             genre=new_genre,
                             year=new_year,
                             composer=new_composer,

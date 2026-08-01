@@ -178,11 +178,12 @@
       "Hörspiel",
       "Comedy"
     ],
+    "genre": "Hörspiel; Comedy",
     "aliases": [
       "Alf"
     ],
     "composer": "Siegfried Rabe",
     "publisher": "Karussell",
-    "comment": ""
+    "comment": "Der kleine Außerirdische ALF aus dem Planeten Melmac landet auf der Erde und wird von der Familie Tanner im Müll gefunden. Ab diesem Moment beginnt ein chaotisches, aber humorvolles Zusammenleben auf dem Wohnzimmersofa."
   }
 }
