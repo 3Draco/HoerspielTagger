@@ -9,7 +9,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-APP_VERSION = "v1.6.7"
+APP_VERSION = "v1.6.8"
 
 # API Configuration
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
@@ -58,7 +58,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "   - 'composer': Identify the soundtrack composer, scriptwriter, or main author of the audio drama (e.g. 'Carsten Bohn' for Die drei ??? / TKKG, 'H.G. Francis' for Larry Brent / Macabros, 'Siegfried Rabe' for ALF).\n"
     "   - 'publisher': The audio drama label/publisher (e.g. 'EUROPA', 'Kiddinx', 'Maritim', 'Karussell', 'Folgenreich').\n"
     "   - 'disc_number': Integer disc number (default is 1, or 2/3 for multi-CD releases).\n"
-    "   - 'comment': Short 1-2 sentence German plot summary or audio drama series blurb.\n\n"
+    "   - 'comment': Short 1-2 sentence German plot summary or audio drama series blurb. (If MCP / web search tools are available in your LLM server, feel free to use live web search for unknown episode titles to get exact plot blurbs!).\n\n"
     "7. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
     "   - The metadata and track titles are in German.\n"
     "   - ALWAYS preserve German umlauts (ä, ö, ü, Ä, Ö, Ü, ß) and special characters directly in UTF-8 format.\n"
