@@ -30,7 +30,8 @@ MANIFEST
 
 # Environment variables
 .env
-.env.*
+.env.local
+!.env.example
 
 # Application local states
 window_state.json
