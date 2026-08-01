@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from mutagen.id3 import ID3, TIT2, TALB, TPE1, TPE2, TRCK, TDRC, TCON, TCOM, COMM, TPOS, APIC, ID3NoHeaderError
+from mutagen.id3 import ID3, TIT2, TALB, TPE1, TPE2, TRCK, TDRC, TCON, TCOM, TPUB, COMM, TPOS, APIC, ID3NoHeaderError
 from chapter_manager import ChapterManager
 from encoding_utils import fix_encoding_corruptions
 
@@ -19,8 +19,10 @@ class TagWriter:
         genre: Any = "Hörspiel",
         year: Optional[int] = None,
         composer: Optional[str] = None,
+        publisher: Optional[str] = None,
         comment: Optional[str] = None,
         disc_number: Optional[Any] = None,
+        author: Optional[str] = None,
         cover_bytes: Optional[bytes] = None,
         chapters: Optional[List[Dict[str, Any]]] = None
     ) -> None:
@@ -33,8 +35,9 @@ class TagWriter:
         album = fix_encoding_corruptions(album)
         artist = fix_encoding_corruptions(artist)
         album_artist = fix_encoding_corruptions(album_artist)
-        composer = fix_encoding_corruptions(composer) if composer else None
-        comment = fix_encoding_corruptions(comment) if comment else None
+        composer_val = fix_encoding_corruptions(composer or author) if (composer or author) else None
+        publisher_val = fix_encoding_corruptions(publisher) if publisher else None
+        comment_val = fix_encoding_corruptions(comment) if comment else None
 
         # Process multi-genre list for Jellyfin / Plex ID3 multi-genre TCON frame
         genres_list: List[str] = []
@@ -75,11 +78,14 @@ class TagWriter:
         if year:
             tags.add(TDRC(encoding=3, text=str(year)))
 
-        if composer:
-            tags.add(TCOM(encoding=3, text=composer))
+        if composer_val:
+            tags.add(TCOM(encoding=3, text=composer_val))
 
-        if comment:
-            tags.add(COMM(encoding=3, lang='deu', desc='', text=comment))
+        if publisher_val:
+            tags.add(TPUB(encoding=3, text=publisher_val))
+
+        if comment_val:
+            tags.add(COMM(encoding=3, lang='deu', desc='', text=comment_val))
 
         if disc_number is not None and str(disc_number).strip():
             tags.add(TPOS(encoding=3, text=str(disc_number).strip()))

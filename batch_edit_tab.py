@@ -90,7 +90,8 @@ class BatchEditTab(ctk.CTkFrame):
         fields_def = [
             ("album_artist", "Album-Interpret / Serie"),
             ("artist", "Track-Interpret"),
-            ("composer", "Komponist"),
+            ("composer", "Komponist / Autor"),
+            ("publisher", "Label / Verlag (z. B. EUROPA)"),
             ("genre", "Genre (z. B. Hörspiel; Comedy)"),
             ("year", "Erscheinungsjahr"),
             ("disc_number", "Disc-Nummer (z. B. 1)"),
@@ -206,6 +207,7 @@ class BatchEditTab(ctk.CTkFrame):
             "album_artist": [],
             "artist": [],
             "composer": [],
+            "publisher": [],
             "genre": [],
             "year": [],
             "disc_number": [],
@@ -223,6 +225,8 @@ class BatchEditTab(ctk.CTkFrame):
                     field_values["artist"].append(t["artist"])
                 if t.get("composer"):
                     field_values["composer"].append(t["composer"])
+                if t.get("publisher"):
+                    field_values["publisher"].append(t["publisher"])
                 if t.get("genre"):
                     g_val = t["genre"] if isinstance(t["genre"], str) else "; ".join(t["genre"])
                     field_values["genre"].append(g_val)
@@ -301,6 +305,7 @@ class BatchEditTab(ctk.CTkFrame):
                         orig_year = None
                         orig_genre = "Hörspiel"
                         orig_composer = None
+                        orig_publisher = None
                         orig_comment = None
                         orig_disc = None
 
@@ -314,6 +319,8 @@ class BatchEditTab(ctk.CTkFrame):
                                 orig_genre = list(existing_id3["TCON"].text) if hasattr(existing_id3["TCON"], 'text') else str(existing_id3["TCON"])
                             if "TCOM" in existing_id3:
                                 orig_composer = str(existing_id3["TCOM"])
+                            if "TPUB" in existing_id3:
+                                orig_publisher = str(existing_id3["TPUB"])
                             if "COMM" in existing_id3 or "COMM::deu" in existing_id3:
                                 comm_obj = existing_id3.get("COMM::deu") or existing_id3.get("COMM")
                                 orig_comment = str(comm_obj) if comm_obj else None
@@ -324,6 +331,7 @@ class BatchEditTab(ctk.CTkFrame):
                         new_album_artist = active_fields["album_artist"] if "album_artist" in active_fields else orig_album_artist
                         new_artist = active_fields["artist"] if "artist" in active_fields else orig_artist
                         new_composer = active_fields["composer"] if "composer" in active_fields else orig_composer
+                        new_publisher = active_fields["publisher"] if "publisher" in active_fields else orig_publisher
                         new_comment = active_fields["comment"] if "comment" in active_fields else orig_comment
                         new_disc = active_fields["disc_number"] if "disc_number" in active_fields else orig_disc
 
@@ -350,6 +358,7 @@ class BatchEditTab(ctk.CTkFrame):
                             genre=new_genre,
                             year=new_year,
                             composer=new_composer,
+                            publisher=new_publisher,
                             comment=new_comment,
                             disc_number=new_disc
                         )

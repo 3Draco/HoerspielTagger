@@ -855,7 +855,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 if t0.get("genre"):
                     genre_str = t0["genre"]
 
-                composer_str = t0.get("composer") or ""
+                composer_str = t0.get("composer") or t0.get("author") or ""
+                publisher_str = t0.get("publisher") or ""
                 comment_str = t0.get("comment") or ""
                 disc_str = str(t0.get("disc_number")) if t0.get("disc_number") else ""
 
@@ -868,6 +869,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "year": year_str,
                 "genre": genre_str,
                 "composer": composer_str,
+                "publisher": publisher_str,
                 "disc_number": disc_str,
                 "comment": comment_str
             }
@@ -1485,7 +1487,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     "series_part": str(episode_num) if episode_num is not None else "",
                     "year": str(metadata.year) if metadata.year is not None else "",
                     "genre": metadata.genre,
-                    "composer": getattr(metadata, 'composer', '') or '',
+                    "composer": getattr(metadata, 'composer', '') or getattr(metadata, 'author', '') or '',
+                    "publisher": getattr(metadata, 'publisher', '') or '',
                     "disc_number": str(getattr(metadata, 'disc_number', 1) or '1'),
                     "comment": getattr(metadata, 'comment', '') or ''
                 }
@@ -2222,6 +2225,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 print(f"[SeriesDB Info] {db_err}")
 
         composer = self.form_entries["composer"].get().strip() if "composer" in self.form_entries else None
+        publisher = self.form_entries["publisher"].get().strip() if "publisher" in self.form_entries else None
         comment = self.form_entries["comment"].get().strip() if "comment" in self.form_entries else None
         disc_number = self.form_entries["disc_number"].get().strip() if "disc_number" in self.form_entries else None
 
@@ -2276,6 +2280,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     genre=genre,
                     year=year,
                     composer=composer,
+                    publisher=publisher,
                     comment=comment,
                     disc_number=disc_number,
                     cover_bytes=self.cover_bytes
@@ -2344,6 +2349,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                             genre=genre,
                             year=year,
                             composer=composer,
+                            publisher=publisher,
                             comment=comment,
                             disc_number=disc_number,
                             cover_bytes=self.cover_bytes,

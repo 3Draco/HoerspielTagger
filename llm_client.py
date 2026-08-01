@@ -35,6 +35,8 @@ class AlbumMetadata(BaseModel):
     episode_title: Optional[str] = Field(default=None, description="Clean episode title without episode number prefix.")
     year: Optional[int] = Field(default=None, description="The release year.")
     composer: Optional[str] = Field(default=None, description="Composer or soundtrack author.")
+    author: Optional[str] = Field(default=None, description="Author / creator alias for composer.")
+    publisher: Optional[str] = Field(default=None, description="Hörspiel label / publisher (e.g. 'EUROPA', 'Kiddinx', 'Maritim').")
     comment: Optional[str] = Field(default=None, description="Comment or additional notes.")
     disc_number: Optional[int] = Field(default=1, description="Disc number.")
     primary_genre: Optional[str] = Field(default=None, description="Primary genre.")
@@ -46,6 +48,10 @@ class AlbumMetadata(BaseModel):
     chapters: Optional[List[TrackMetadata]] = Field(default=None, description="Alias for tracks.")
 
     def model_post_init(self, __context: Any) -> None:
+        if self.author and not self.composer:
+            self.composer = self.author
+        elif self.composer and not self.author:
+            self.author = self.composer
         # Normalize multi-genre list
         parsed_genres: List[str] = []
         if isinstance(self.genres, list) and self.genres:

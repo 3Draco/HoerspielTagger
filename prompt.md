@@ -40,8 +40,9 @@ CRITICAL RULES FOR AUDIO DRAMAS (HÖRSHPIELE):
      * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)
      If none fits accurately, default to ["Hörspiel", "Allgemein"].
 
-6. COMPOSER, DISC-NUMBER & COMMENT RULES:
+6. COMPOSER, PUBLISHER, DISC-NUMBER & COMMENT RULES:
    - 'composer': Identify the soundtrack composer, scriptwriter, or main author of the audio drama (e.g. 'Carsten Bohn' for Die drei ??? / TKKG, 'H.G. Francis' for Larry Brent / Macabros, 'Siegfried Rabe' for ALF).
+   - 'publisher': The audio drama label/publisher (e.g. 'EUROPA', 'Kiddinx', 'Maritim', 'Karussell', 'Folgenreich').
    - 'disc_number': Integer disc number (default is 1, or 2/3 for multi-CD releases).
    - 'comment': Short 1-2 sentence German plot summary or audio drama series blurb.
 
@@ -63,6 +64,7 @@ You must return ONLY a single, valid JSON object matching this schema:
   "year": 1983,
   "genres": ["Hörspiel", "Horror"],
   "composer": "H.G. Francis",
+  "publisher": "EUROPA",
   "disc_number": 1,
   "comment": "Grusel-Hörspiel nach dem Roman von A. F. Morland.",
   "tracks": [

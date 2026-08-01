@@ -9,7 +9,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-APP_VERSION = "v1.6.2"
+APP_VERSION = "v1.6.3"
 
 # API Configuration
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
@@ -54,8 +54,9 @@ DEFAULT_SYSTEM_PROMPT = (
     "     * 'Thriller' (Psychothriller, Spionage, Spannung)\n"
     "     * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)\n"
     "     If none fits accurately, default to [\"Hörspiel\", \"Allgemein\"].\n\n"
-    "6. COMPOSER, DISC-NUMBER & COMMENT RULES:\n"
+    "6. COMPOSER, PUBLISHER, DISC-NUMBER & COMMENT RULES:\n"
     "   - 'composer': Identify the soundtrack composer, scriptwriter, or main author of the audio drama (e.g. 'Carsten Bohn' for Die drei ??? / TKKG, 'H.G. Francis' for Larry Brent / Macabros, 'Siegfried Rabe' for ALF).\n"
+    "   - 'publisher': The audio drama label/publisher (e.g. 'EUROPA', 'Kiddinx', 'Maritim', 'Karussell', 'Folgenreich').\n"
     "   - 'disc_number': Integer disc number (default is 1, or 2/3 for multi-CD releases).\n"
     "   - 'comment': Short 1-2 sentence German plot summary or audio drama series blurb.\n\n"
     "7. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
@@ -75,6 +76,7 @@ DEFAULT_SYSTEM_PROMPT = (
     '  "year": 1983,\n'
     '  "genres": ["Hörspiel", "Horror"],\n'
     '  "composer": "H.G. Francis",\n'
+    '  "publisher": "EUROPA",\n'
     '  "disc_number": 1,\n'
     '  "comment": "Grusel-Hörspiel nach dem Roman von A. F. Morland.",\n'
     '  "tracks": [\n'
