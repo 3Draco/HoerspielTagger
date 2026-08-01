@@ -51,6 +51,7 @@ class CoverChooserDialog(ctk.CTkToplevel):
         self.sources = sources or ["discogs", "itunes", "deezer", "musicbrainz"]
         self.on_select_cover = on_select_cover
         self.candidates = candidates or []
+        self.episode_num = getattr(parent, 'episode_num', None)
         self.filtered_candidates = []
         self.current_filter = "all"
         self.keep_image_refs = []
@@ -100,7 +101,7 @@ class CoverChooserDialog(ctk.CTkToplevel):
     def _run_async_search(self):
         """Runs candidate search in background thread."""
         cands = CoverDownloader.search_cover_candidates(
-            self.artist, self.album, self.title_query, sources=self.sources
+            self.artist, self.album, self.title_query, sources=self.sources, episode_num=self.episode_num
         )
         self.after(0, lambda: self._on_search_completed(cands))
 
@@ -230,6 +231,7 @@ class CoverChooserDialog(ctk.CTkToplevel):
     def _select_candidate(self, candidate: Dict[str, Any]):
         url = candidate.get("url", "")
         year = candidate.get("year")
+        cand_title = candidate.get("title", "")
         def do_download():
             raw_bytes = CoverDownloader.download_image(url)
             def apply():
@@ -237,9 +239,12 @@ class CoverChooserDialog(ctk.CTkToplevel):
                 self.destroy()
                 if raw_bytes and cb:
                     try:
-                        cb(raw_bytes, year)
+                        cb(raw_bytes, year, cand_title)
                     except TypeError:
-                        cb(raw_bytes)
+                        try:
+                            cb(raw_bytes, year)
+                        except TypeError:
+                            cb(raw_bytes)
             self.after(0, apply)
 
         threading.Thread(target=do_download, daemon=True).start()

@@ -667,6 +667,54 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 self.form_entries["year"].delete(0, tk.END)
                 self.form_entries["year"].insert(0, str(year_val))
 
+    @staticmethod
+    def _extract_episode_num_from_text(text: str) -> Optional[int]:
+        if not text:
+            return None
+        import re
+        m1 = re.search(r'(?:folge|nr\.?|vol\.?)\s*(\d{1,3})\b', text, re.IGNORECASE)
+        if m1:
+            try:
+                val = int(m1.group(1))
+                if 0 < val < 999:
+                    return val
+            except ValueError:
+                pass
+        m2 = re.search(r'\(\s*0*(\d{1,3})\s*\)', text)
+        if m2:
+            try:
+                val = int(m2.group(1))
+                if 0 < val < 999:
+                    return val
+            except ValueError:
+                pass
+        m3 = re.search(r'(?:^|[\-\s])0*(\d{1,3})\s*\-\s*', text)
+        if m3:
+            try:
+                val = int(m3.group(1))
+                if 0 < val < 999:
+                    return val
+            except ValueError:
+                pass
+        return None
+
+    def _auto_correct_episode_num_if_matched(self, ep_num: Optional[int]):
+        if not ep_num or ep_num <= 0:
+            return
+        num_str = f"{ep_num:02d}"
+        if "series_part" in self.form_entries:
+            curr_val = self.form_entries["series_part"].get().strip()
+            if curr_val != num_str and curr_val != str(ep_num):
+                self.form_entries["series_part"].delete(0, tk.END)
+                self.form_entries["series_part"].insert(0, num_str)
+                if "album" in self.form_entries:
+                    ep_title = self.form_entries["episode_title"].get().strip() if "episode_title" in self.form_entries else ""
+                    if ep_title:
+                        self.form_entries["album"].delete(0, tk.END)
+                        self.form_entries["album"].insert(0, f"{num_str} - {ep_title}")
+                self._update_live_preview()
+                self._save_current_album_state()
+
     def _on_cover_source_changed(self):
         """Triggered when cover sources checkboxes are toggled by the user."""
         if not self.scan_results or self.current_album_idx not in range(len(self.scan_results)):
@@ -702,16 +750,18 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             artist = self.form_entries["album_artist"].get().strip()
             album_title = self.form_entries["album"].get().strip()
             title = self.form_entries["series"].get().strip() or album_title
+            ep_num = self.form_entries["series_part"].get().strip() if "series_part" in self.form_entries else ""
 
             self.cover_status_lbl.configure(text="🔍 Suche Cover online...", text_color="orange")
             self.update()
 
             def fetch():
-                candidates = CoverDownloader.search_cover_candidates(artist, album_title, title, sources=sources)
+                candidates = CoverDownloader.search_cover_candidates(artist, album_title, title, sources=sources, episode_num=ep_num)
                 if candidates and candidates[0].get("score", 0) >= 10:
                     best = candidates[0]
                     cover_url = best.get("url")
                     found_year = best.get("year")
+                    found_ep = self._extract_episode_num_from_text(best.get("title", ""))
                     if cover_url:
                         img_bytes = CoverDownloader.download_image(cover_url)
                         if img_bytes:
@@ -719,6 +769,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                                 self.cover_bytes = img_bytes
                                 self._display_cover_image(img_bytes)
                                 self._auto_fill_year_if_missing(found_year)
+                                if found_ep:
+                                    self._auto_correct_episode_num_if_matched(found_ep)
                                 self.cover_status_lbl.configure(text="Cover online geladen", text_color="#2b712b")
                                 self._save_current_album_state()
                             self.after(0, apply)
@@ -826,15 +878,38 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             }
 
     def _clear_cache(self):
-        """Clears all cached album states and resets the editor."""
+        """Clears all cached album states, removes loaded folders/files, and resets the application to fresh initial state."""
         self.album_states = {}
+        self.scan_results = []
+        self.current_album_idx = 0
+        self.target_dir = None
+        self.dragged_paths = None
         self.cover_bytes = None
+        self.current_ctk_image = None
+        self.is_processing = False
+
+        # Reset Sidebar UI
+        self.folder_lbl.configure(text="Kein Ordner ausgewählt", text_color="gray")
+        self.scan_btn.configure(state="disabled")
+        self.analyze_btn.configure(state="disabled")
+
+        # Reset Main Panel UI
+        self.scan_textbox.delete("0.0", tk.END)
+        self.scan_textbox.insert("0.0", "Wähle einen Ordner aus oder ziehe einen Ordner in das Drop-Feld oben, um zu beginnen...")
+
+        self.album_status_lbl.configure(text="Keine Daten geladen")
+        self.nav_prev_btn.configure(state="disabled")
+        self.nav_next_btn.configure(state="disabled")
+
         self._clear_editor()
-        self._scan_folder(reset_states=True)
-        
+        self._update_live_preview()
+
+        # Reset Tab view to first tab
+        self.content_tabview.set("Scannen und Ordnerstruktur")
+
         # Show temporary success message
         self.loading_lbl.grid(row=0, column=3, padx=10, pady=2, sticky="e")
-        self.loading_lbl.configure(text="🧹 Cache erfolgreich geleert!", text_color="#2b712b")
+        self.loading_lbl.configure(text="🧹 Cache & Ordner erfolgreich geleert!", text_color="#2b712b")
         self.after(3000, self._clear_status)
 
     def _scan_folder(self, reset_states=True, keep_index=False):
@@ -1157,12 +1232,16 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         title = self.form_entries["series"].get() or album
         sources = self._get_active_cover_sources()
 
-        def on_selected(new_bytes, year=None):
+        def on_selected(new_bytes, year=None, cand_title=None):
             self._cover_fetch_token += 1
             self.cover_bytes = new_bytes
             self._display_cover_image(new_bytes)
             if year:
                 self._auto_fill_year_if_missing(year)
+            if cand_title:
+                found_ep = self._extract_episode_num_from_text(cand_title)
+                if found_ep:
+                    self._auto_correct_episode_num_if_matched(found_ep)
             self.cover_status_lbl.configure(text="Cover aus Varianten gewählt", text_color="#2b712b")
             self._save_current_album_state()
 
@@ -1325,9 +1404,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 if self.cover_var.get() or not metadata.year:
                     sources = self._get_active_cover_sources()
                     if sources:
-                        candidates = CoverDownloader.search_cover_candidates(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
+                        ep_num = getattr(metadata, 'series_part', None) or getattr(metadata, 'episode_number', None)
+                        candidates = CoverDownloader.search_cover_candidates(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources, episode_num=ep_num)
                         if candidates and candidates[0].get("score", 0) >= 10:
                             best = candidates[0]
+                            found_ep = self._extract_episode_num_from_text(best.get("title", ""))
+                            if found_ep and not metadata.series_part:
+                                metadata.series_part = found_ep
                             if not cover_bytes and self.cover_var.get():
                                 cover_url = best.get("url")
                                 if cover_url:
@@ -1425,6 +1508,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, lambda: self.progress_bar.stop())
             self.after(0, lambda: self.progress_bar.grid_remove())
             self.after(0, lambda: self.analyze_btn.configure(state="normal", text="LLM-Analyse starten"))
+            self.after(0, lambda: self.scan_btn.configure(state="normal" if self.target_dir else "disabled"))
             self.after(0, self._close_progress_dialog)
 
     def _display_metadata_proposal(self, metadata: AlbumMetadata, cover_url: Optional[str]):
@@ -1628,7 +1712,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     episode_title = self.form_entries["episode_title"].get() if "episode_title" in self.form_entries else getattr(metadata, 'episode_title', None)
 
                     if artist or album_title:
-                        candidates = CoverDownloader.search_cover_candidates(artist, album_title, episode_title, sources=sources)
+                        ep_num = self.form_entries["series_part"].get() if "series_part" in self.form_entries else (getattr(metadata, 'series_part', None) if metadata else "")
+                        candidates = CoverDownloader.search_cover_candidates(artist, album_title, episode_title, sources=sources, episode_num=ep_num)
                         if candidates and candidates[0].get("score", 0) >= 10:
                             best = candidates[0]
                             found_year = best.get("year")

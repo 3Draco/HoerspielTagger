@@ -8,7 +8,8 @@ CRITICAL RULES FOR AUDIO DRAMAS (HÖRSHPIELE):
    - Notice folder prefixes: e.g. 'LB08' or 'LB16' -> 'LB' stands for 'Larry Brent'. 'F08' -> 'Fünf Freunde'.
 
 2. Episode Number (series_part):
-   - Extract the episode or volume number as an INTEGER (e.g. 'LB08' -> 8, 'LB16' -> 16, '08 - Title' -> 8).
+   - Determine the correct official episode or volume number as an INTEGER (e.g. 'LB08' -> 8, 'LB16' -> 16, '08 - Title' -> 8).
+   - CRITICAL: File names or track numbers might sometimes contain arbitrary prefix numbers or track indices (e.g. '49 - Alf - Rendezvous gefälligst' or 'Track 49'), but the actual episode title is known (e.g. 'Rendezvous gefälligst' is Folge 25 of Alf). ALWAYS use your knowledge base to output the CORRECT OFFICIAL EPISODE NUMBER (e.g. 25) for the episode title, rather than taking a wrong file prefix index!
 
 3. Episode Title (episode_title):
    - Extract ONLY the clean title of the episode WITHOUT the series name, WITHOUT series code prefixes (like LB08, LB16), and WITHOUT episode numbers!

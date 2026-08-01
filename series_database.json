@@ -20,5 +20,15 @@
     "display_name": "Abenteuer im Weltraum",
     "genre": "Hörspiel; Science-Fiction",
     "aliases": []
+  },
+  "unbekannt": {
+    "display_name": "Unbekannt",
+    "genre": "Hörspiel; Allgemein",
+    "aliases": []
+  },
+  "alf's": {
+    "display_name": "Alf's",
+    "genre": "Hörspiel; Kinder",
+    "aliases": []
   }
 }

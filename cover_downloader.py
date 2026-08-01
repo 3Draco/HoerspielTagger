@@ -16,20 +16,35 @@ class CoverDownloader:
         return ' '.join(cleaned.split())
 
     @classmethod
-    def _calculate_score(cls, clean_artist: str, clean_title: str, cand_artist: str, cand_title: str, extra_bonus: int = 0) -> int:
+    def _calculate_score(cls, clean_artist: str, clean_title: str, cand_artist: str, cand_title: str, episode_num: Optional[str] = None, extra_bonus: int = 0) -> int:
         score = extra_bonus
         cand_art_lower = (cand_artist or "").lower().strip()
         cand_title_lower = (cand_title or "").lower().strip()
         clean_art_lower = (clean_artist or "").lower().strip()
         clean_title_lower = (clean_title or "").lower().strip()
 
-        # Artist Matching
+        # Artist / Series Matching
         if clean_art_lower:
-            if clean_art_lower in cand_art_lower or cand_art_lower in clean_art_lower:
+            artist_match = (clean_art_lower in cand_art_lower) or (cand_art_lower in clean_art_lower)
+            title_has_artist = clean_art_lower in cand_title_lower
+
+            if artist_match or title_has_artist:
                 score += 15
-            elif cand_art_lower and not any(w in cand_art_lower for w in clean_art_lower.split() if len(w) > 2):
-                # Major artist mismatch penalty (e.g. searching "Alf" vs "Rita Falk")
+            else:
+                # Penalty only if clean_artist appears neither in artist nor in candidate title
                 score -= 30
+
+        # Episode Number Matching
+        if episode_num:
+            ep_str = str(episode_num).strip().lstrip("0")
+            if ep_str:
+                ep_patterns = [
+                    r'\b' + re.escape(ep_str) + r'\b',
+                    r'\b0+' + re.escape(ep_str) + r'\b',
+                    r'folge\s*' + re.escape(ep_str)
+                ]
+                if any(re.search(pat, cand_title_lower, re.IGNORECASE) for pat in ep_patterns):
+                    score += 15
 
         # Title Matching
         if clean_title_lower:
@@ -52,7 +67,7 @@ class CoverDownloader:
         return score
 
     @classmethod
-    def search_cover_candidates(cls, album_artist: str, album: str, episode_title: Optional[str] = None, sources: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    def search_cover_candidates(cls, album_artist: str, album: str, episode_title: Optional[str] = None, sources: Optional[List[str]] = None, episode_num: Optional[Any] = None) -> List[Dict[str, Any]]:
         """
         Searches active APIs for cover art candidates.
         sources can contain "itunes", "deezer", "musicbrainz", "discogs".
@@ -67,17 +82,35 @@ class CoverDownloader:
         if clean_artist and clean_title and clean_artist.lower() in clean_title.lower():
             clean_title = re.sub(re.escape(clean_artist), '', clean_title, flags=re.IGNORECASE).strip()
 
+        # Extract episode number if not explicitly passed
+        ep_num_str = str(episode_num).strip() if episode_num is not None else ""
+        if not ep_num_str and album:
+            match = re.search(r'^(?:folge|track|cd)?\s*(\d{1,3})\b', album, flags=re.IGNORECASE)
+            if match:
+                ep_num_str = match.group(1)
+
         queries = []
+        if clean_artist and ep_num_str and clean_title:
+            queries.append(f"{clean_artist} Folge {ep_num_str} {clean_title}")
+            queries.append(f"{clean_artist} {ep_num_str} {clean_title}")
+
+        if clean_artist and ep_num_str:
+            queries.append(f"{clean_artist} Folge {ep_num_str}")
+            queries.append(f"{clean_artist} {ep_num_str}")
+
         if clean_artist and clean_title:
             queries.append(f"{clean_artist} {clean_title}")
             queries.append(f"Hörspiel {clean_artist} {clean_title}")
+
         if clean_artist and album:
             clean_album = cls._clean_string(album)
             if clean_album and clean_album != clean_title:
                 queries.append(f"{clean_artist} {clean_album}")
 
-        # Only fallback to searching clean_title alone if clean_artist is completely empty!
+        # Fallback if no artist was specified
         if not clean_artist and clean_title:
+            if ep_num_str:
+                queries.append(f"Folge {ep_num_str} {clean_title}")
             queries.append(clean_title)
 
         unique_queries = []
@@ -92,26 +125,26 @@ class CoverDownloader:
 
         # 1. Discogs Source
         if "discogs" in sources:
-            cls._search_discogs(queries, clean_artist, clean_title, candidates, seen_urls)
+            cls._search_discogs(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
 
         # 2. iTunes Source
         if "itunes" in sources:
-            cls._search_itunes(queries, clean_artist, clean_title, candidates, seen_urls)
+            cls._search_itunes(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
 
         # 3. Deezer Source
         if "deezer" in sources:
-            cls._search_deezer(queries, clean_artist, clean_title, candidates, seen_urls)
+            cls._search_deezer(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
 
         # 4. MusicBrainz Source
         if "musicbrainz" in sources:
-            cls._search_musicbrainz(queries, clean_artist, clean_title, candidates, seen_urls)
+            cls._search_musicbrainz(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
 
         # Sort candidates by relevance score descending
         candidates.sort(key=lambda x: x["score"], reverse=True)
         return candidates
 
     @classmethod
-    def _search_discogs(cls, queries, clean_artist, clean_title, candidates, seen_urls):
+    def _search_discogs(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
         import config
         token = getattr(config, 'DISCOGS_API_TOKEN', '')
         headers = {"User-Agent": "HoerspielTagger/1.3.0 (+https://github.com/3Draco/HoerspielTagger)"}
@@ -122,7 +155,7 @@ class CoverDownloader:
         for query in queries:
             if not query.strip():
                 continue
-            params = {"q": query.strip(), "type": "release", "per_page": 5}
+            params = {"q": query.strip(), "type": "release", "per_page": 15}
             if token:
                 params["token"] = token
             try:
@@ -164,7 +197,7 @@ class CoverDownloader:
                         formats = [str(f).lower() for f in res.get("format", [])]
                         if any(f in ["cassette", "album", "audiobook"] for f in formats):
                             extra_bonus += 2
-                        score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, extra_bonus=extra_bonus)
+                        score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, episode_num=ep_num_str, extra_bonus=extra_bonus)
 
                         candidates.append({
                             "title": f"[Discogs] {col_name}",
@@ -179,13 +212,13 @@ class CoverDownloader:
                 pass
 
     @classmethod
-    def _search_itunes(cls, queries, clean_artist, clean_title, candidates, seen_urls):
+    def _search_itunes(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
         url = "https://itunes.apple.com/search"
         for media, entity in [("music", "album"), ("audiobook", None)]:
             for query in queries:
                 if not query.strip():
                     continue
-                params = {"term": query.strip(), "country": "DE", "media": media, "limit": 6}
+                params = {"term": query.strip(), "country": "DE", "media": media, "limit": 12}
                 if entity:
                     params["entity"] = entity
                 try:
@@ -205,7 +238,7 @@ class CoverDownloader:
                             year = int(rel_date[:4]) if len(rel_date) >= 4 and rel_date[:4].isdigit() else None
 
                             extra_bonus = 2 if media == "music" else 0
-                            score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, extra_bonus=extra_bonus)
+                            score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, episode_num=ep_num_str, extra_bonus=extra_bonus)
                             
                             candidates.append({
                                 "title": f"[iTunes] {col_name}",
@@ -220,13 +253,13 @@ class CoverDownloader:
                     pass
 
     @classmethod
-    def _search_deezer(cls, queries, clean_artist, clean_title, candidates, seen_urls):
+    def _search_deezer(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
         url = "https://api.deezer.com/search/album"
         for query in queries:
             if not query.strip():
                 continue
             try:
-                response = requests.get(url, params={"q": query.strip(), "limit": 4}, timeout=5)
+                response = requests.get(url, params={"q": query.strip(), "limit": 10}, timeout=5)
                 if response.status_code == 200:
                     results = response.json().get("data", [])
                     for res in results:
@@ -241,7 +274,7 @@ class CoverDownloader:
                         rel_date = str(res.get("release_date") or "")
                         year = int(rel_date[:4]) if len(rel_date) >= 4 and rel_date[:4].isdigit() else None
 
-                        score = cls._calculate_score(clean_artist, clean_title, art_name, col_name)
+                        score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, episode_num=ep_num_str)
                         
                         candidates.append({
                             "title": f"[Deezer] {col_name}",
@@ -256,14 +289,14 @@ class CoverDownloader:
                 pass
 
     @classmethod
-    def _search_musicbrainz(cls, queries, clean_artist, clean_title, candidates, seen_urls):
+    def _search_musicbrainz(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
         headers = {"User-Agent": "HoerspielTagger/1.3.0 (+https://github.com/3Draco/HoerspielTagger)"}
         if not queries:
             return
         query = queries[0]
         mb_url = "https://musicbrainz.org/ws/2/release"
         try:
-            params = {"query": query.strip(), "limit": 3, "fmt": "json"}
+            params = {"query": query.strip(), "limit": 5, "fmt": "json"}
             response = requests.get(mb_url, params=params, headers=headers, timeout=6)
             if response.status_code == 200:
                 releases = response.json().get("releases", [])
@@ -290,7 +323,7 @@ class CoverDownloader:
                                     col_name = rel.get("title") or ""
                                     art_name = rel.get("artist-credit", [{}])[0].get("name") or ""
                                     
-                                    score = cls._calculate_score(clean_artist, clean_title, art_name, col_name)
+                                    score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, episode_num=ep_num_str)
                                     
                                     candidates.append({
                                         "title": f"[MusicBrainz] {col_name}",
