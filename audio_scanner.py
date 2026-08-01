@@ -118,7 +118,30 @@ class AudioScanner:
                     except ValueError:
                         pass
                 
-                info["genre"] = fix_encoding_corruptions(str(tags.get("TCON", "")))
+                tcon = tags.get("TCON")
+                if tcon:
+                    if hasattr(tcon, "genres") and tcon.genres:
+                        info["genre"] = "; ".join([fix_encoding_corruptions(str(g)) for g in tcon.genres if str(g)])
+                    elif hasattr(tcon, "text") and isinstance(tcon.text, list):
+                        info["genre"] = "; ".join([fix_encoding_corruptions(str(g)) for g in tcon.text if str(g)])
+                    else:
+                        info["genre"] = fix_encoding_corruptions(str(tcon)).replace('\x00', '; ')
+
+                tcom = tags.get("TCOM")
+                if tcom:
+                    info["composer"] = fix_encoding_corruptions(str(tcom)).replace('\x00', '; ')
+
+                tpub = tags.get("TPUB")
+                if tpub:
+                    info["publisher"] = fix_encoding_corruptions(str(tpub)).replace('\x00', '; ')
+
+                comm = tags.get("COMM::deu") or tags.get("COMM")
+                if comm:
+                    info["comment"] = fix_encoding_corruptions(str(comm)).replace('\x00', ' ')
+
+                tpos = tags.get("TPOS")
+                if tpos:
+                    info["disc_number"] = fix_encoding_corruptions(str(tpos)).replace('\x00', '')
 
         except Exception as e:
             # If mutagen fails or file is corrupt, log it or fallback

@@ -2145,6 +2145,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         except Exception:
                             pass
 
+                composer = form_data.get("composer") or ""
+                publisher = form_data.get("publisher") or ""
+                comment = form_data.get("comment") or ""
+                disc_number = form_data.get("disc_number") or ""
+
                 all_batch_items.append({
                     "album": album,
                     "album_artist": album_artist,
@@ -2153,6 +2158,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     "series_part": series_part,
                     "genre": genre,
                     "year": year,
+                    "composer": composer,
+                    "publisher": publisher,
+                    "comment": comment,
+                    "disc_number": disc_number,
                     "changes": changes,
                     "cover_bytes": c_bytes
                 })
@@ -2195,7 +2204,11 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     item["genre"], 
                     item["year"], 
                     item["changes"],
-                    is_batch=True
+                    is_batch=True,
+                    composer=item.get("composer"),
+                    publisher=item.get("publisher"),
+                    comment=item.get("comment"),
+                    disc_number=item.get("disc_number")
                 )
                 self.cover_bytes = saved_cover
 
@@ -2215,19 +2228,42 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, lambda: self.apply_btn.configure(state="normal"))
             self.after(0, lambda: self.apply_all_btn.configure(state="normal", text="💾 Alle Alben auf einmal speichern"))
 
-    def _run_write_operation(self, album, album_artist, album_name, genre, year, changes, is_batch: bool = False):
+    def _run_write_operation(
+        self,
+        album,
+        album_artist,
+        album_name,
+        genre,
+        year,
+        changes,
+        is_batch: bool = False,
+        composer: Optional[str] = None,
+        publisher: Optional[str] = None,
+        comment: Optional[str] = None,
+        disc_number: Optional[str] = None
+    ):
+        if composer is None:
+            composer = self.form_entries["composer"].get().strip() if "composer" in self.form_entries else None
+        if publisher is None:
+            publisher = self.form_entries["publisher"].get().strip() if "publisher" in self.form_entries else None
+        if comment is None:
+            comment = self.form_entries["comment"].get().strip() if "comment" in self.form_entries else None
+        if disc_number is None:
+            disc_number = self.form_entries["disc_number"].get().strip() if "disc_number" in self.form_entries else None
+
         # Auto-learn / update SeriesDatabase with finalized series name & genre
         if album_artist and genre:
             try:
                 from series_db import SeriesDatabase
-                SeriesDatabase.set_series_genre(album_artist, genre)
+                SeriesDatabase.set_series_genre(
+                    series_name=album_artist,
+                    genre=genre,
+                    composer=composer,
+                    publisher=publisher,
+                    comment=comment
+                )
             except Exception as db_err:
                 print(f"[SeriesDB Info] {db_err}")
-
-        composer = self.form_entries["composer"].get().strip() if "composer" in self.form_entries else None
-        publisher = self.form_entries["publisher"].get().strip() if "publisher" in self.form_entries else None
-        comment = self.form_entries["comment"].get().strip() if "comment" in self.form_entries else None
-        disc_number = self.form_entries["disc_number"].get().strip() if "disc_number" in self.form_entries else None
 
         folder_path = Path(album["folder_path"])
         is_flat = album.get("flat_mode", False)
