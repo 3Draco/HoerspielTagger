@@ -861,17 +861,17 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 disc_str = str(t0.get("disc_number")) if t0.get("disc_number") else ""
 
             form_data = {
-                "album_artist": album_artist,
-                "album": album_name,
-                "episode_title": album_name.split(" - ", 1)[-1] if " - " in album_name else album_name,
-                "series": album_artist,
-                "series_part": series_part,
-                "year": year_str,
-                "genre": genre_str,
-                "composer": composer_str,
-                "publisher": publisher_str,
-                "disc_number": disc_str,
-                "comment": comment_str
+                "album_artist": "",
+                "album": "",
+                "episode_title": "",
+                "series": "",
+                "series_part": "",
+                "year": "",
+                "genre": "",
+                "composer": "",
+                "publisher": "",
+                "disc_number": "",
+                "comment": ""
             }
 
             track_rows = []

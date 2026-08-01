@@ -22,6 +22,20 @@ class MetadataFormFrame(ctk.CTkScrollableFrame):
         # Form Table Column Headers
         ctk.CTkLabel(self, text="ID3 Feld", font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=0, padx=10, pady=(5, 8), sticky="w")
         ctk.CTkLabel(self, text="📄 Aktuell in MP3-Dateien (Vorher)", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray").grid(row=0, column=1, padx=10, pady=(5, 8), sticky="w")
+        
+        copy_all_btn = ctk.CTkButton(
+            self,
+            text="➔ Alle",
+            width=55,
+            height=26,
+            fg_color="#1f538d",
+            hover_color="#14375e",
+            text_color="white",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            command=self.copy_all_values
+        )
+        copy_all_btn.grid(row=0, column=2, padx=4, pady=(5, 8))
+
         ctk.CTkLabel(self, text="🤖 LLM-Vorschlag / Bearbeitbar (Nachher)", font=ctk.CTkFont(size=12, weight="bold"), text_color="#1f538d").grid(row=0, column=3, padx=10, pady=(5, 8), sticky="w")
 
         # Editor Fields with explicit ID3 Frame tags, Current Values (Vorher), and Hints
@@ -104,3 +118,12 @@ class MetadataFormFrame(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(entry_frame, text=hint_text, font=ctk.CTkFont(size=10), text_color="gray").pack(anchor="w", pady=(1, 0))
         self.form_entries[key] = ent
+
+    def copy_all_values(self):
+        """Copies all current MP3 tag values (Vorher) to the editable LLM proposal entries (Nachher) at once."""
+        for key, curr_ent in self.current_tag_entries.items():
+            val = curr_ent.get()
+            if val and val != "(Kein Tag)" and key in self.form_entries:
+                self.form_entries[key].delete(0, ctk.END)
+                self.form_entries[key].insert(0, val)
+        self.on_update_live_preview()
