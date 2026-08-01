@@ -133,7 +133,7 @@ def run_cli(target_dir: str, dry_run: bool, merge: bool):
                     artist=series_name,
                     album_artist=series_name,
                     track_number=change["track_number"],
-                    genre=metadata.genre or "Hörspiel",
+                    genre=metadata.genres or metadata.genre or ["Hörspiel"],
                     year=metadata.year,
                     cover_bytes=cover_bytes
                 )
@@ -177,7 +177,7 @@ def run_cli(target_dir: str, dry_run: bool, merge: bool):
                         artist=series_name,
                         album_artist=series_name,
                         track_number=episode_num,
-                        genre=metadata.genre or "Hörspiel",
+                        genre=metadata.genres or metadata.genre or ["Hörspiel"],
                         year=metadata.year,
                         cover_bytes=cover_bytes,
                         chapters=chapter_data

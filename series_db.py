@@ -37,6 +37,26 @@ class SeriesDatabase:
         return []
 
     @classmethod
+    def _parse_genres(cls, raw_genres: Any) -> List[str]:
+        if isinstance(raw_genres, list):
+            res = []
+            for item in raw_genres:
+                if isinstance(item, str):
+                    for sub in item.replace(';', ',').split(','):
+                        clean_sub = sub.strip()
+                        if clean_sub and clean_sub not in res:
+                            res.append(clean_sub)
+            return res if res else ["Hörspiel"]
+        elif isinstance(raw_genres, str) and raw_genres.strip():
+            res = []
+            for sub in raw_genres.replace(';', ',').split(','):
+                clean_sub = sub.strip()
+                if clean_sub and clean_sub not in res:
+                    res.append(clean_sub)
+            return res if res else ["Hörspiel"]
+        return ["Hörspiel"]
+
+    @classmethod
     def load_db(cls) -> Dict[str, Dict[str, Any]]:
         path = cls._get_db_file_path()
         if not path.exists():
@@ -79,27 +99,33 @@ class SeriesDatabase:
         # 1. Exact match on normalized primary key
         if norm_query in db:
             entry = db[norm_query]
+            genres_list = cls._parse_genres(entry.get("genres") or entry.get("genre"))
             return {
                 "display_name": entry.get("display_name", query.strip()),
-                "genre": entry.get("genre", "Hörspiel"),
+                "genres": genres_list,
+                "genre": "; ".join(genres_list),
                 "aliases": entry.get("aliases", [])
             }
 
         # 2. Match against display_name or aliases
         for norm_key, entry in db.items():
             disp = entry.get("display_name", "")
+            aliases = entry.get("aliases", [])
+            genres_list = cls._parse_genres(entry.get("genres") or entry.get("genre"))
+
             if cls._normalize_key(disp) == norm_query:
                 return {
                     "display_name": disp,
-                    "genre": entry.get("genre", "Hörspiel"),
-                    "aliases": entry.get("aliases", [])
+                    "genres": genres_list,
+                    "genre": "; ".join(genres_list),
+                    "aliases": aliases
                 }
-            aliases = entry.get("aliases", [])
             for alias in aliases:
                 if cls._normalize_key(alias) == norm_query:
                     return {
                         "display_name": disp,
-                        "genre": entry.get("genre", "Hörspiel"),
+                        "genres": genres_list,
+                        "genre": "; ".join(genres_list),
                         "aliases": aliases
                     }
         return None
@@ -121,6 +147,7 @@ class SeriesDatabase:
             if info:
                 return {
                     "series_name": info["display_name"],
+                    "genres": info["genres"],
                     "genre": info["genre"],
                     "episode_num": int(num_str)
                 }
@@ -131,6 +158,7 @@ class SeriesDatabase:
             disp_name = entry.get("display_name", "")
             aliases = entry.get("aliases", [])
             candidates = [disp_name] + aliases
+            genres_list = cls._parse_genres(entry.get("genres") or entry.get("genre"))
 
             for cand in candidates:
                 if not cand:
@@ -138,19 +166,19 @@ class SeriesDatabase:
                 norm_cand = cls._normalize_key(cand)
                 norm_folder = cls._normalize_key(folder_name)
                 if norm_folder.startswith(norm_cand):
-                    # Check if followed by digit or separator
                     remainder = norm_folder[len(norm_cand):].strip(" -_:")
                     num_match = re.match(r'^(\d{1,4})', remainder)
                     ep_num = int(num_match.group(1)) if num_match else None
                     return {
                         "series_name": disp_name,
-                        "genre": entry.get("genre", "Hörspiel"),
+                        "genres": genres_list,
+                        "genre": "; ".join(genres_list),
                         "episode_num": ep_num
                     }
         return None
 
     @classmethod
-    def set_series_genre(cls, series_name: str, genre: str, aliases: Optional[Any] = None, overwrite_existing: bool = True) -> bool:
+    def set_series_genre(cls, series_name: str, genre: Any, aliases: Optional[Any] = None, overwrite_existing: bool = True) -> bool:
         if not series_name or not genre:
             return False
         norm_key = cls._normalize_key(series_name)
@@ -164,10 +192,12 @@ class SeriesDatabase:
 
         display_name = series_name.strip()
         parsed_aliases = cls._parse_aliases_input(aliases) if aliases is not None else existing.get("aliases", [])
+        genres_list = cls._parse_genres(genre)
 
         db[norm_key] = {
             "display_name": display_name,
-            "genre": genre.strip(),
+            "genres": genres_list,
+            "genre": "; ".join(genres_list),
             "aliases": parsed_aliases
         }
         return cls.save_db(db)
@@ -179,12 +209,14 @@ class SeriesDatabase:
         result = []
         for norm_key, data in db.items():
             disp = data.get("display_name", norm_key)
-            gen = data.get("genre", "Hörspiel")
+            genres_list = cls._parse_genres(data.get("genres") or data.get("genre"))
+            gen_str = "; ".join(genres_list)
             aliases = data.get("aliases", [])
             aliases_str = ", ".join(aliases)
             result.append({
                 "display_name": disp,
-                "genre": gen,
+                "genres": genres_list,
+                "genre": gen_str,
                 "aliases": aliases,
                 "aliases_str": aliases_str
             })
@@ -197,8 +229,8 @@ class SeriesDatabase:
         result = {}
         for norm_key, data in db.items():
             disp = data.get("display_name", norm_key)
-            gen = data.get("genre", "Hörspiel")
-            result[disp] = gen
+            genres_list = cls._parse_genres(data.get("genres") or data.get("genre"))
+            result[disp] = "; ".join(genres_list)
         return dict(sorted(result.items(), key=lambda x: x[0].lower()))
 
     @classmethod
@@ -209,10 +241,11 @@ class SeriesDatabase:
         for norm_key, data in db.items():
             disp = data.get("display_name", "")
             aliases = data.get("aliases", [])
-            gen = data.get("genre", "")
+            genres_list = cls._parse_genres(data.get("genres") or data.get("genre"))
+            gen_str = "; ".join(genres_list)
             if aliases:
                 alias_str = ", ".join(aliases)
-                lines.append(f"- Kürzel '{alias_str}' -> Serie: '{disp}' (Genre: '{gen}')")
+                lines.append(f"- Kürzel '{alias_str}' -> Serie: '{disp}' (Genre: '{gen_str}')")
         return "\n".join(lines)
 
     @classmethod

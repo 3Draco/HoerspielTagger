@@ -1,34 +1,52 @@
 {
   "alf": {
     "display_name": "Alf",
-    "genre": "Hörspiel; Comedy",
+    "genres": [
+      "Hörspiel",
+      "Comedy"
+    ],
     "aliases": []
   },
   "fünf freunde": {
     "display_name": "Fünf Freunde",
-    "genre": "Hörspiel; Abenteuer",
+    "genres": [
+      "Hörspiel",
+      "Abenteuer"
+    ],
     "aliases": [
       "FF"
     ]
   },
   "balduin pfiff": {
     "display_name": "Balduin Pfiff",
-    "genre": "Hörspiel; Detektiv",
+    "genres": [
+      "Hörspiel",
+      "Detektiv"
+    ],
     "aliases": []
   },
   "abenteuer im weltraum": {
     "display_name": "Abenteuer im Weltraum",
-    "genre": "Hörspiel; Science-Fiction",
+    "genres": [
+      "Hörspiel",
+      "Science-Fiction"
+    ],
     "aliases": []
   },
   "unbekannt": {
     "display_name": "Unbekannt",
-    "genre": "Hörspiel; Allgemein",
+    "genres": [
+      "Hörspiel",
+      "Allgemein"
+    ],
     "aliases": []
   },
   "alf's": {
     "display_name": "Alf's",
-    "genre": "Hörspiel; Kinder",
+    "genres": [
+      "Hörspiel",
+      "Kinder"
+    ],
     "aliases": []
   }
 }

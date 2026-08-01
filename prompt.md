@@ -24,9 +24,9 @@ CRITICAL RULES FOR AUDIO DRAMAS (HÖRSHPIELE):
      '{series} {series_part:02d} - {episode_title}'
    - Example: 'Larry Brent 08 - Das Grauen von Blackwood Castle'
 
-5. GENRE & SUBGENRE RULES:
-   - 'primary_genre' MUST ALWAYS be 'Hörspiel'.
-   - 'secondary_genre' MUST be selected from ONE of the following allowed categories based on context:
+5. MULTI-GENRE RULES:
+   - 'genres' MUST be a JSON array of strings (List[str]), e.g., ["Hörspiel", "Comedy"] or ["Hörspiel", "Horror"].
+   - Always include 'Hörspiel' as the first element in the array, followed by a secondary subgenre category:
      * 'Horror' (Grusel, Dämonen, Monster, Geister)
      * 'Krimi' (Kriminalfälle, Polizei, Mordermittlung)
      * 'Detektiv' (Jugend-Detektive, Rätsel, Spürnasen)
@@ -38,9 +38,7 @@ CRITICAL RULES FOR AUDIO DRAMAS (HÖRSHPIELE):
      * 'Comedy' (Humor, Satire, Klamauk)
      * 'Thriller' (Psychothriller, Spionage, Spannung)
      * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)
-     If none fits accurately, default to 'Allgemein'.
-   - 'formatted_genre' MUST combine primary and secondary genre with a semicolon and space for maximum media server & MP3 player compatibility:
-     'Hörspiel; {secondary_genre}' (e.g., 'Hörspiel; Horror' or 'Hörspiel; Detektiv')
+     If none fits accurately, default to ["Hörspiel", "Allgemein"].
 
 6. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:
    - The metadata and track titles are in German.
@@ -58,9 +56,7 @@ You must return ONLY a single, valid JSON object matching this schema:
   "episode_title": "Das Grauen von Blackwood Castle",
   "album": "Larry Brent 08 - Das Grauen von Blackwood Castle",
   "year": 1983,
-  "primary_genre": "Hörspiel",
-  "secondary_genre": "Horror",
-  "formatted_genre": "Hörspiel; Horror",
+  "genres": ["Hörspiel", "Horror"],
   "tracks": [
     {
       "original_filename": "01 - Intro.mp3",

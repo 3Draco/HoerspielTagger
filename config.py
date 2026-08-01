@@ -39,9 +39,9 @@ DEFAULT_SYSTEM_PROMPT = (
     "   - Format for maximum hardware compatibility: Include the Series Name, zero-padded episode number, and clean episode title:\n"
     "     '{series} {series_part:02d} - {episode_title}'\n"
     "   - Example: 'Larry Brent 08 - Das Grauen von Blackwood Castle'\n\n"
-    "5. GENRE & SUBGENRE RULES:\n"
-    "   - 'primary_genre' MUST ALWAYS be 'Hörspiel'.\n"
-    "   - 'secondary_genre' MUST be selected from ONE of the following allowed categories based on context:\n"
+    "5. MULTI-GENRE RULES:\n"
+    "   - 'genres' MUST be a JSON array of strings (List[str]), e.g., [\"Hörspiel\", \"Comedy\"] or [\"Hörspiel\", \"Horror\"].\n"
+    "   - Always include 'Hörspiel' as the first element in the array, followed by a secondary subgenre category:\n"
     "     * 'Horror' (Grusel, Dämonen, Monster, Geister)\n"
     "     * 'Krimi' (Kriminalfälle, Polizei, Mordermittlung)\n"
     "     * 'Detektiv' (Jugend-Detektive, Rätsel, Spürnasen)\n"
@@ -53,9 +53,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "     * 'Comedy' (Humor, Satire, Klamauk)\n"
     "     * 'Thriller' (Psychothriller, Spionage, Spannung)\n"
     "     * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)\n"
-    "     If none fits accurately, default to 'Allgemein'.\n"
-    "   - 'formatted_genre' MUST combine primary and secondary genre with a semicolon and space for maximum media server & MP3 player compatibility:\n"
-    "     'Hörspiel; {secondary_genre}' (e.g., 'Hörspiel; Horror' or 'Hörspiel; Detektiv')\n\n"
+    "     If none fits accurately, default to [\"Hörspiel\", \"Allgemein\"].\n\n"
     "6. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
     "   - The metadata and track titles are in German.\n"
     "   - ALWAYS preserve German umlauts (ä, ö, ü, Ä, Ö, Ü, ß) and special characters directly in UTF-8 format.\n"
@@ -71,9 +69,7 @@ DEFAULT_SYSTEM_PROMPT = (
     '  "episode_title": "Das Grauen von Blackwood Castle",\n'
     '  "album": "Larry Brent 08 - Das Grauen von Blackwood Castle",\n'
     '  "year": 1983,\n'
-    '  "primary_genre": "Hörspiel",\n'
-    '  "secondary_genre": "Horror",\n'
-    '  "formatted_genre": "Hörspiel; Horror",\n'
+    '  "genres": ["Hörspiel", "Horror"],\n'
     '  "tracks": [\n'
     "    {\n"
     '      "original_filename": "01 - Intro.mp3",\n'

@@ -36,16 +36,45 @@ class AlbumMetadata(BaseModel):
     year: Optional[int] = Field(default=None, description="The release year.")
     primary_genre: Optional[str] = Field(default=None, description="Primary genre.")
     secondary_genre: Optional[str] = Field(default=None, description="Secondary genre / subgenre.")
-    formatted_genre: Optional[str] = Field(default=None, description="Formatted genre string, e.g., 'Hörspiel; Horror'.")
-    genre: str = Field(default="Hörspiel", description="Genre string for ID3 tags.")
+    formatted_genre: Optional[str] = Field(default=None, description="Formatted genre string.")
+    genre: Optional[str] = Field(default=None, description="Legacy genre string for ID3 tags.")
+    genres: List[str] = Field(default_factory=lambda: ["Hörspiel"], description="Multi-genre list (e.g. ['Hörspiel', 'Comedy']).")
     tracks: List[TrackMetadata] = Field(default_factory=list, description="List of tracks/chapters.")
     chapters: Optional[List[TrackMetadata]] = Field(default=None, description="Alias for tracks.")
 
     def model_post_init(self, __context: Any) -> None:
-        if self.formatted_genre:
-            self.genre = self.formatted_genre
-        elif self.primary_genre and self.secondary_genre:
-            self.genre = f"{self.primary_genre}; {self.secondary_genre}"
+        # Normalize multi-genre list
+        parsed_genres: List[str] = []
+        if isinstance(self.genres, list) and self.genres:
+            for item in self.genres:
+                if isinstance(item, str):
+                    for sub in item.replace(';', ',').split(','):
+                        clean_sub = sub.strip()
+                        if clean_sub and clean_sub not in parsed_genres:
+                            parsed_genres.append(clean_sub)
+        elif isinstance(self.genres, str) and self.genres:
+            for sub in str(self.genres).replace(';', ',').split(','):
+                clean_sub = sub.strip()
+                if clean_sub and clean_sub not in parsed_genres:
+                    parsed_genres.append(clean_sub)
+
+        # Fallback from legacy genre fields if genres list was empty
+        legacy_str = self.formatted_genre or self.genre
+        if not legacy_str and self.primary_genre and self.secondary_genre:
+            legacy_str = f"{self.primary_genre}; {self.secondary_genre}"
+
+        if legacy_str:
+            for sub in str(legacy_str).replace(';', ',').split(','):
+                clean_sub = sub.strip()
+                if clean_sub and clean_sub not in parsed_genres:
+                    parsed_genres.append(clean_sub)
+
+        if not parsed_genres:
+            parsed_genres = ["Hörspiel"]
+
+        self.genres = parsed_genres
+        self.genre = "; ".join(self.genres)
+        self.formatted_genre = self.genre
 
         if self.series_name and not self.album_artist:
             self.album_artist = self.series_name
