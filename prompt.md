@@ -40,7 +40,12 @@ CRITICAL RULES FOR AUDIO DRAMAS (HÖRSHPIELE):
      * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)
      If none fits accurately, default to ["Hörspiel", "Allgemein"].
 
-6. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:
+6. COMPOSER, DISC-NUMBER & COMMENT RULES:
+   - 'composer': Identify the soundtrack composer, scriptwriter, or main author of the audio drama (e.g. 'Carsten Bohn' for Die drei ??? / TKKG, 'H.G. Francis' for Larry Brent / Macabros, 'Siegfried Rabe' for ALF).
+   - 'disc_number': Integer disc number (default is 1, or 2/3 for multi-CD releases).
+   - 'comment': Short 1-2 sentence German plot summary or audio drama series blurb.
+
+7. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:
    - The metadata and track titles are in German.
    - ALWAYS preserve German umlauts (ä, ö, ü, Ä, Ö, Ü, ß) and special characters directly in UTF-8 format.
    - NEVER convert German umlauts into ?, ASCII replacements (ae, oe, ue), or unicode escapes (\uXXXX).
@@ -57,6 +62,9 @@ You must return ONLY a single, valid JSON object matching this schema:
   "album": "Larry Brent 08 - Das Grauen von Blackwood Castle",
   "year": 1983,
   "genres": ["Hörspiel", "Horror"],
+  "composer": "H.G. Francis",
+  "disc_number": 1,
+  "comment": "Grusel-Hörspiel nach dem Roman von A. F. Morland.",
   "tracks": [
     {
       "original_filename": "01 - Intro.mp3",

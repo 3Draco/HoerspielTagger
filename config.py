@@ -9,7 +9,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-APP_VERSION = "v1.6.1"
+APP_VERSION = "v1.6.2"
 
 # API Configuration
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
@@ -54,7 +54,11 @@ DEFAULT_SYSTEM_PROMPT = (
     "     * 'Thriller' (Psychothriller, Spionage, Spannung)\n"
     "     * 'Klassiker' (Literaturverfilmung/Adaptionen, historische Stoffe)\n"
     "     If none fits accurately, default to [\"Hörspiel\", \"Allgemein\"].\n\n"
-    "6. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
+    "6. COMPOSER, DISC-NUMBER & COMMENT RULES:\n"
+    "   - 'composer': Identify the soundtrack composer, scriptwriter, or main author of the audio drama (e.g. 'Carsten Bohn' for Die drei ??? / TKKG, 'H.G. Francis' for Larry Brent / Macabros, 'Siegfried Rabe' for ALF).\n"
+    "   - 'disc_number': Integer disc number (default is 1, or 2/3 for multi-CD releases).\n"
+    "   - 'comment': Short 1-2 sentence German plot summary or audio drama series blurb.\n\n"
+    "7. CRITICAL ENCODING & LANGUAGE INSTRUCTIONS:\n"
     "   - The metadata and track titles are in German.\n"
     "   - ALWAYS preserve German umlauts (ä, ö, ü, Ä, Ö, Ü, ß) and special characters directly in UTF-8 format.\n"
     "   - NEVER convert German umlauts into ?, ASCII replacements (ae, oe, ue), or unicode escapes (\\uXXXX).\n"
@@ -70,6 +74,9 @@ DEFAULT_SYSTEM_PROMPT = (
     '  "album": "Larry Brent 08 - Das Grauen von Blackwood Castle",\n'
     '  "year": 1983,\n'
     '  "genres": ["Hörspiel", "Horror"],\n'
+    '  "composer": "H.G. Francis",\n'
+    '  "disc_number": 1,\n'
+    '  "comment": "Grusel-Hörspiel nach dem Roman von A. F. Morland.",\n'
     '  "tracks": [\n'
     "    {\n"
     '      "original_filename": "01 - Intro.mp3",\n'

@@ -1484,7 +1484,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     "series": metadata.series,
                     "series_part": str(episode_num) if episode_num is not None else "",
                     "year": str(metadata.year) if metadata.year is not None else "",
-                    "genre": metadata.genre
+                    "genre": metadata.genre,
+                    "composer": getattr(metadata, 'composer', '') or '',
+                    "disc_number": str(getattr(metadata, 'disc_number', 1) or '1'),
+                    "comment": getattr(metadata, 'comment', '') or ''
                 }
 
                 # Save state per state_key
