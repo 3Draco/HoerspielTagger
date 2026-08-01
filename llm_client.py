@@ -168,7 +168,11 @@ class LLMClient:
 
         system_prompt = custom_prompt or getattr(config, 'LLM_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT) or DEFAULT_SYSTEM_PROMPT
 
-        user_content = f"Please analyze this folder context and generate the clean metadata:\n\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
+        user_content = (
+            f"Please analyze this audio drama folder context and generate the clean metadata JSON.\n"
+            f"FOR THE 'comment' FIELD: Use your knowledge base or live web search (if MCP/websearch is available) to write a clean 2-3 sentence German plot summary / Klappentext for this specific episode!\n\n"
+            f"Folder Context:\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
+        )
 
         try:
             # We try using json_object response format, but catch errors if the model/backend doesn't support it

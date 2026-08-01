@@ -63,7 +63,7 @@ class SeriesDatabase:
             "aliases": ["Drei ???", "Die 3 ???", "D3?"],
             "composer": "Carsten Bohn",
             "publisher": "EUROPA",
-            "comment": "Jugend-Detektiv Hörspiel von EUROPA."
+            "comment": ""
         },
         "tkkg": {
             "display_name": "TKKG",
@@ -71,7 +71,7 @@ class SeriesDatabase:
             "aliases": ["T.K.K.G."],
             "composer": "Carsten Bohn",
             "publisher": "EUROPA",
-            "comment": "Jugend-Krimi Hörspiel von EUROPA."
+            "comment": ""
         },
         "fünf freunde": {
             "display_name": "Fünf Freunde",
@@ -79,7 +79,7 @@ class SeriesDatabase:
             "aliases": ["5 Freunde", "F5"],
             "composer": "Enid Blyton",
             "publisher": "EUROPA",
-            "comment": "Abenteuer-Hörspiel nach Enid Blyton."
+            "comment": ""
         },
         "larry brent": {
             "display_name": "Larry Brent",
@@ -87,7 +87,7 @@ class SeriesDatabase:
             "aliases": ["LB"],
             "composer": "H.G. Francis",
             "publisher": "EUROPA",
-            "comment": "Grusel-Hörspiel nach den Romanen von A. F. Morland."
+            "comment": ""
         },
         "macabros": {
             "display_name": "Macabros",
@@ -95,7 +95,7 @@ class SeriesDatabase:
             "aliases": ["MB"],
             "composer": "H.G. Francis",
             "publisher": "EUROPA",
-            "comment": "Dämonen-Hörspiel von H.G. Francis."
+            "comment": ""
         },
         "bibi blocksberg": {
             "display_name": "Bibi Blocksberg",
@@ -103,7 +103,7 @@ class SeriesDatabase:
             "aliases": ["Bibi"],
             "composer": "Elfie Donnelly",
             "publisher": "Kiddinx",
-            "comment": "Kinder-Hörspiel von Kiddinx."
+            "comment": ""
         },
         "bibi und tina": {
             "display_name": "Bibi und Tina",
@@ -111,7 +111,7 @@ class SeriesDatabase:
             "aliases": ["Bibi & Tina"],
             "composer": "Elfie Donnelly",
             "publisher": "Kiddinx",
-            "comment": "Pferde-Abenteuer Hörspiel von Kiddinx."
+            "comment": ""
         },
         "benjamin blümchen": {
             "display_name": "Benjamin Blümchen",
@@ -119,7 +119,7 @@ class SeriesDatabase:
             "aliases": ["Benjamin"],
             "composer": "Elfie Donnelly",
             "publisher": "Kiddinx",
-            "comment": "Kinder-Hörspiel von Kiddinx."
+            "comment": ""
         },
         "geisterjäger john sinclair": {
             "display_name": "Geisterjäger John Sinclair",
@@ -127,7 +127,7 @@ class SeriesDatabase:
             "aliases": ["John Sinclair", "JS"],
             "composer": "Jason Dark",
             "publisher": "Lübbe Audio",
-            "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."
+            "comment": ""
         },
         "gabriel burns": {
             "display_name": "Gabriel Burns",
@@ -135,7 +135,7 @@ class SeriesDatabase:
             "aliases": ["GB"],
             "composer": "Volker Sponholz",
             "publisher": "Folgenreich",
-            "comment": "Mystery-Hörspielserie von Folgenreich."
+            "comment": ""
         },
         "jan tenner": {
             "display_name": "Jan Tenner",
@@ -143,7 +143,7 @@ class SeriesDatabase:
             "aliases": ["JT"],
             "composer": "Dick Farlow",
             "publisher": "Karussell",
-            "comment": "Science-Fiction Hörspielserie von Karussell."
+            "comment": ""
         },
         "sherlock holmes": {
             "display_name": "Sherlock Holmes",
@@ -151,7 +151,7 @@ class SeriesDatabase:
             "aliases": ["SH"],
             "composer": "Arthur Conan Doyle",
             "publisher": "Maritim",
-            "comment": "Kriminal-Hörspiel nach Sir Arthur Conan Doyle."
+            "comment": ""
         },
         "offenbarung 23": {
             "display_name": "Offenbarung 23",
@@ -159,7 +159,7 @@ class SeriesDatabase:
             "aliases": ["O23"],
             "composer": "Jan Gaspard",
             "publisher": "Lübbe Audio",
-            "comment": "Verschwörungs-Thriller Hörspiel."
+            "comment": ""
         },
         "alf": {
             "display_name": "ALF",
@@ -167,7 +167,7 @@ class SeriesDatabase:
             "aliases": ["Alf"],
             "composer": "Siegfried Rabe",
             "publisher": "Karussell",
-            "comment": "Kult-Comedy Hörspiel nach der US-Sitcom."
+            "comment": ""
         }
     }
 
