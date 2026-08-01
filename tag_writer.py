@@ -80,8 +80,8 @@ class TagWriter:
                 data=cover_bytes
             ))
 
-        # Save ID3v2.3 tags
-        tags.save(filepath, v2_version=3)
+        # Save ID3v2.4 tags for native UTF-8 null-byte multi-genre support in Jellyfin & Plex
+        tags.save(filepath, v2_version=4)
 
         # Embed ID3v2 CHAP & CTOC chapter frames if chapter data is provided
         if chapters:
