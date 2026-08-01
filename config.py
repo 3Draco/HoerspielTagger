@@ -9,7 +9,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-APP_VERSION = "v1.7.4"
+APP_VERSION = "v1.7.5"
 
 # API Configuration
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
@@ -25,10 +25,10 @@ DEFAULT_SYSTEM_PROMPT = (
     "1. Series Name (series / album_artist):\n"
     "   - Identify the main series name (e.g. 'ALF', 'Larry Brent', 'Fünf Freunde', 'Die drei ???', 'TKKG', 'John Sinclair').\n"
     "   - Notice folder prefixes: e.g. 'LB08' or 'LB16' -> 'LB' stands for 'Larry Brent'. 'F08' -> 'Fünf Freunde'.\n"
-    "   - UNKNOWN OR ISOLATED EPISODE TITLES: If the input contains an episode title (e.g. 'Rendezvous gefälligst') without an explicit series name, search your knowledge base or perform a live web search (if MCP/websearch is available) for the title (e.g. search 'Rendezvous gefälligst Hörspiel') to identify the correct series (e.g. 'ALF') and official episode number (e.g. 25)!\n\n"
+    "   - UNKNOWN OR ISOLATED EPISODE TITLES: If the input contains an episode title without an explicit series name, search your knowledge base or perform a live web search (if MCP/websearch is available) to identify the correct series and its actual official episode number!\n\n"
     "2. Episode Number (series_part):\n"
-    "   - Determine the correct official episode or volume number as an INTEGER (e.g. 'LB08' -> 8, 'LB16' -> 16, '08 - Title' -> 8).\n"
-    "   - CRITICAL: File names or track numbers might sometimes contain arbitrary prefix numbers or track indices (e.g. '49 - Alf - Rendezvous gefälligst' or 'Track 49'), but the actual episode title is known (e.g. 'Rendezvous gefälligst' is Folge 25 of Alf). ALWAYS use your knowledge base to output the CORRECT OFFICIAL EPISODE NUMBER (e.g. 25) for the episode title, rather than taking a wrong file prefix index!\n\n"
+    "   - Determine the correct official episode or volume number of the specific input album as an INTEGER.\n"
+    "   - CRITICAL: DO NOT hardcode or copy example numbers (like 25) from this prompt! You MUST extract or lookup the real episode number for the specific input folder being analyzed. If the folder is 'ALF 03', the number is 3. If the folder is 'ALF 12', the number is 12.\n\n"
     "3. Episode Title (episode_title):\n"
     "   - Extract ONLY the clean title of the episode WITHOUT the series name, WITHOUT series code prefixes (like LB08, LB16), and WITHOUT episode numbers!\n"
     "   - Examples:\n"
