@@ -16,6 +16,42 @@ class CoverDownloader:
         return ' '.join(cleaned.split())
 
     @classmethod
+    def _calculate_score(cls, clean_artist: str, clean_title: str, cand_artist: str, cand_title: str, extra_bonus: int = 0) -> int:
+        score = extra_bonus
+        cand_art_lower = (cand_artist or "").lower().strip()
+        cand_title_lower = (cand_title or "").lower().strip()
+        clean_art_lower = (clean_artist or "").lower().strip()
+        clean_title_lower = (clean_title or "").lower().strip()
+
+        # Artist Matching
+        if clean_art_lower:
+            if clean_art_lower in cand_art_lower or cand_art_lower in clean_art_lower:
+                score += 15
+            elif cand_art_lower and not any(w in cand_art_lower for w in clean_art_lower.split() if len(w) > 2):
+                # Major artist mismatch penalty (e.g. searching "Alf" vs "Rita Falk")
+                score -= 30
+
+        # Title Matching
+        if clean_title_lower:
+            if clean_title_lower in cand_title_lower:
+                score += 20
+            else:
+                # Word match check
+                words = [w for w in re.split(r'\W+', clean_title_lower) if len(w) > 2]
+                if words:
+                    matching_words = [w for w in words if w in cand_title_lower]
+                    match_ratio = len(matching_words) / len(words)
+                    if match_ratio == 1.0:
+                        score += 15
+                    elif match_ratio >= 0.5:
+                        score += 8
+                    elif match_ratio == 0:
+                        score -= 20
+                else:
+                    score -= 10
+        return score
+
+    @classmethod
     def search_cover_candidates(cls, album_artist: str, album: str, episode_title: Optional[str] = None, sources: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Searches active APIs for cover art candidates.
@@ -34,10 +70,22 @@ class CoverDownloader:
         queries = []
         if clean_artist and clean_title:
             queries.append(f"{clean_artist} {clean_title}")
-        if clean_title:
+            queries.append(f"Hörspiel {clean_artist} {clean_title}")
+        if clean_artist and album:
+            clean_album = cls._clean_string(album)
+            if clean_album and clean_album != clean_title:
+                queries.append(f"{clean_artist} {clean_album}")
+
+        # Only fallback to searching clean_title alone if clean_artist is completely empty!
+        if not clean_artist and clean_title:
             queries.append(clean_title)
-        if album_artist and album:
-            queries.append(f"{album_artist} {cls._clean_string(album)}")
+
+        unique_queries = []
+        for q in queries:
+            q_strip = q.strip()
+            if q_strip and q_strip not in unique_queries:
+                unique_queries.append(q_strip)
+        queries = unique_queries
 
         candidates = []
         seen_urls = set()
@@ -85,7 +133,6 @@ class CoverDownloader:
                         artwork_url = res.get("cover_image") or res.get("thumb")
                         resource_url = res.get("resource_url")
 
-                        # If cover_image is empty (e.g. search without token), fetch release endpoint for image URL
                         if not artwork_url and resource_url:
                             try:
                                 rel_resp = requests.get(resource_url, headers=headers, timeout=4)
@@ -113,14 +160,11 @@ class CoverDownloader:
                             except (ValueError, TypeError):
                                 year = None
                                 
-                        score = 0
-                        if clean_title and clean_title.lower() in col_name.lower():
-                            score += 10
-                        if clean_artist and clean_artist.lower() in art_name.lower():
-                            score += 5
+                        extra_bonus = 0
                         formats = [str(f).lower() for f in res.get("format", [])]
                         if any(f in ["cassette", "album", "audiobook"] for f in formats):
-                            score += 2
+                            extra_bonus += 2
+                        score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, extra_bonus=extra_bonus)
 
                         candidates.append({
                             "title": f"[Discogs] {col_name}",
@@ -160,13 +204,8 @@ class CoverDownloader:
                             rel_date = str(res.get("releaseDate") or "")
                             year = int(rel_date[:4]) if len(rel_date) >= 4 and rel_date[:4].isdigit() else None
 
-                            score = 0
-                            if clean_title and clean_title.lower() in col_name.lower():
-                                score += 10
-                            if clean_artist and clean_artist.lower() in art_name.lower():
-                                score += 5
-                            if media == "music":
-                                score += 2
+                            extra_bonus = 2 if media == "music" else 0
+                            score = cls._calculate_score(clean_artist, clean_title, art_name, col_name, extra_bonus=extra_bonus)
                             
                             candidates.append({
                                 "title": f"[iTunes] {col_name}",
@@ -202,11 +241,7 @@ class CoverDownloader:
                         rel_date = str(res.get("release_date") or "")
                         year = int(rel_date[:4]) if len(rel_date) >= 4 and rel_date[:4].isdigit() else None
 
-                        score = 0
-                        if clean_title and clean_title.lower() in col_name.lower():
-                            score += 10
-                        if clean_artist and clean_artist.lower() in art_name.lower():
-                            score += 5
+                        score = cls._calculate_score(clean_artist, clean_title, art_name, col_name)
                         
                         candidates.append({
                             "title": f"[Deezer] {col_name}",
@@ -255,11 +290,7 @@ class CoverDownloader:
                                     col_name = rel.get("title") or ""
                                     art_name = rel.get("artist-credit", [{}])[0].get("name") or ""
                                     
-                                    score = 0
-                                    if clean_title and clean_title.lower() in col_name.lower():
-                                        score += 10
-                                    if clean_artist and clean_artist.lower() in art_name.lower():
-                                        score += 5
+                                    score = cls._calculate_score(clean_artist, clean_title, art_name, col_name)
                                     
                                     candidates.append({
                                         "title": f"[MusicBrainz] {col_name}",
@@ -280,7 +311,7 @@ class CoverDownloader:
     def search_cover_url(cls, album_artist: str, album: str, episode_title: Optional[str] = None, sources: Optional[List[str]] = None) -> Optional[str]:
         """Returns the best matching high-resolution cover URL from candidate search."""
         candidates = cls.search_cover_candidates(album_artist, album, episode_title, sources)
-        if candidates:
+        if candidates and candidates[0].get("score", 0) >= 10:
             return candidates[0]["url"]
         return None
 

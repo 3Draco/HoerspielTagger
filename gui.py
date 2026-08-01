@@ -708,7 +708,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
             def fetch():
                 candidates = CoverDownloader.search_cover_candidates(artist, album_title, title, sources=sources)
-                if candidates:
+                if candidates and candidates[0].get("score", 0) >= 10:
                     best = candidates[0]
                     cover_url = best.get("url")
                     found_year = best.get("year")
@@ -1326,7 +1326,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     sources = self._get_active_cover_sources()
                     if sources:
                         candidates = CoverDownloader.search_cover_candidates(metadata.album_artist, metadata.album, getattr(metadata, 'episode_title', None), sources=sources)
-                        if candidates:
+                        if candidates and candidates[0].get("score", 0) >= 10:
                             best = candidates[0]
                             if not cover_bytes and self.cover_var.get():
                                 cover_url = best.get("url")
@@ -1629,7 +1629,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
                     if artist or album_title:
                         candidates = CoverDownloader.search_cover_candidates(artist, album_title, episode_title, sources=sources)
-                        if candidates:
+                        if candidates and candidates[0].get("score", 0) >= 10:
                             best = candidates[0]
                             found_year = best.get("year")
                             if self.cover_var.get() and best.get("url"):
