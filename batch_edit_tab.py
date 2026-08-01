@@ -9,9 +9,11 @@ from tag_writer import TagWriter
 class BatchEditTab(ctk.CTkFrame):
     """
     Modular tab for batch-editing metadata tags across multiple audio drama albums/files.
-    Allows selecting which specific fields to overwrite (e.g. only Interpret or Genre)
-    while keeping all other existing tags untouched (Mp3tag-style batch processing).
+    Mp3tag-style: inspects selected files, pre-fills matching values, provides dropdowns
+    for differing values, and selectively overwrites only active fields.
     """
+
+    KEEP_VALUE = "< beibehalten >"
 
     def __init__(self, parent: Any, get_scan_results_cb: Callable[[], List[Dict[str, Any]]], on_status_update_cb: Optional[Callable[[str, str], None]] = None, **kwargs):
         super().__init__(parent, **kwargs)
@@ -39,7 +41,7 @@ class BatchEditTab(ctk.CTkFrame):
 
         sub_lbl = ctk.CTkLabel(
             self,
-            text="Wähle die zu ändernden Dateien und aktiviere nur die Felder, die überschrieben werden sollen. Alle anderen Tags bleiben unverändert.",
+            text="Wähle Dateien aus. Gleiche Tags werden angezeigt; bei verschiedenen Tags bietet das Dropdown alle vorhandenen Werte an. Nur geänderte/aktivierte Tags werden überschrieben.",
             font=ctk.CTkFont(size=12),
             text_color="gray"
         )
@@ -51,7 +53,7 @@ class BatchEditTab(ctk.CTkFrame):
         left_frame.grid_columnconfigure(0, weight=1)
         left_frame.grid_rowconfigure(1, weight=1)
 
-        file_list_title = ctk.CTkLabel(left_frame, text="📁 Ausgewählte Alben / Ordner", font=ctk.CTkFont(size=14, weight="bold"))
+        file_list_title = ctk.CTkLabel(left_frame, text="📁 Ausgewählte Hörspiele / Dateien", font=ctk.CTkFont(size=14, weight="bold"))
         file_list_title.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
 
         self.select_all_var = ctk.BooleanVar(value=True)
@@ -73,12 +75,12 @@ class BatchEditTab(ctk.CTkFrame):
         right_frame.grid(row=1, column=1, padx=(7, 15), pady=10, sticky="nsew")
         right_frame.grid_columnconfigure(1, weight=1)
 
-        fields_title = ctk.CTkLabel(right_frame, text="✏️ Zu ändernde Metadaten-Felder", font=ctk.CTkFont(size=14, weight="bold"))
+        fields_title = ctk.CTkLabel(right_frame, text="✏️ Metadaten bearbeiten (Mp3tag-Stil)", font=ctk.CTkFont(size=14, weight="bold"))
         fields_title.grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 15), sticky="w")
 
-        # Field Controls (Checkbox + Entry)
+        # Field Controls (Checkbox + CTkComboBox for high contrast & dropdown list)
         self.field_vars: Dict[str, ctk.BooleanVar] = {}
-        self.field_entries: Dict[str, ctk.CTkEntry] = {}
+        self.field_combos: Dict[str, ctk.CTkComboBox] = {}
 
         fields_def = [
             ("album_artist", "Album-Interpret / Serie"),
@@ -86,7 +88,7 @@ class BatchEditTab(ctk.CTkFrame):
             ("composer", "Komponist"),
             ("genre", "Genre (z. B. Hörspiel; Comedy)"),
             ("year", "Erscheinungsjahr"),
-            ("disc_number", "Disc-Nummer (z. B. 1 oder 1/2)"),
+            ("disc_number", "Disc-Nummer (z. B. 1)"),
             ("comment", "Kommentar")
         ]
 
@@ -97,21 +99,28 @@ class BatchEditTab(ctk.CTkFrame):
                 right_frame,
                 text=label_text,
                 variable=chk_var,
-                command=lambda k=key: self._toggle_entry_state(k)
+                font=ctk.CTkFont(weight="bold")
             )
-            chk.grid(row=row_idx, column=0, padx=10, pady=6, sticky="w")
+            chk.grid(row=row_idx, column=0, padx=10, pady=8, sticky="w")
             self.field_vars[key] = chk_var
 
-            entry = ctk.CTkEntry(right_frame, placeholder_text=f"Neuer Wert für {label_text}...")
-            entry.grid(row=row_idx, column=1, padx=10, pady=6, sticky="ew")
-            entry.configure(state="disabled")
-            self.field_entries[key] = entry
+            combo = ctk.CTkComboBox(
+                right_frame,
+                values=[self.KEEP_VALUE],
+                font=ctk.CTkFont(size=12),
+                dropdown_font=ctk.CTkFont(size=12),
+                command=lambda val, k=key: self._on_combo_changed(k, val)
+            )
+            combo.set(self.KEEP_VALUE)
+            combo.grid(row=row_idx, column=1, padx=10, pady=8, sticky="ew")
+            combo.bind("<KeyRelease>", lambda e, k=key: self._on_combo_typed(k))
+            self.field_combos[key] = combo
 
             row_idx += 1
 
         # Action Buttons Section
         btn_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
-        btn_frame.grid(row=row_idx, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="ew")
+        btn_frame.grid(row=row_idx, column=0, columnspan=2, padx=10, pady=(25, 10), sticky="ew")
         btn_frame.grid_columnconfigure(0, weight=1)
 
         self.apply_batch_btn = ctk.CTkButton(
@@ -120,7 +129,7 @@ class BatchEditTab(ctk.CTkFrame):
             font=ctk.CTkFont(weight="bold", size=13),
             fg_color="#1f538d",
             hover_color="#14375e",
-            height=38,
+            height=40,
             command=self._start_batch_apply
         )
         self.apply_batch_btn.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -136,6 +145,7 @@ class BatchEditTab(ctk.CTkFrame):
         if not scan_results:
             empty_lbl = ctk.CTkLabel(self.files_scroll_frame, text="Keine Hörspiele / Alben im Scanner geladen.", text_color="gray")
             empty_lbl.pack(padx=10, pady=20)
+            self._update_field_values_from_selection()
             return
 
         for idx, album in enumerate(scan_results):
@@ -146,19 +156,97 @@ class BatchEditTab(ctk.CTkFrame):
             display_text = f"[{idx+1:02d}] {album_title} ({num_tracks} Track{'s' if num_tracks != 1 else ''})"
 
             var = ctk.BooleanVar(value=True)
-            cb = ctk.CTkCheckBox(self.files_scroll_frame, text=display_text, variable=var)
+            cb = ctk.CTkCheckBox(
+                self.files_scroll_frame,
+                text=display_text,
+                variable=var,
+                command=self._on_file_selection_changed
+            )
             cb.pack(anchor="w", padx=5, pady=4)
             self.album_checkbox_vars.append((album, var))
+
+        self._update_field_values_from_selection()
 
     def _toggle_select_all(self):
         val = self.select_all_var.get()
         for _, var in self.album_checkbox_vars:
             var.set(val)
+        self._update_field_values_from_selection()
 
-    def _toggle_entry_state(self, key: str):
-        enabled = self.field_vars[key].get()
-        state = "normal" if enabled else "disabled"
-        self.field_entries[key].configure(state=state)
+    def _on_file_selection_changed(self):
+        self._update_field_values_from_selection()
+
+    def _on_combo_changed(self, key: str, val: str):
+        if val != self.KEEP_VALUE:
+            self.field_vars[key].set(True)
+        else:
+            self.field_vars[key].set(False)
+
+    def _on_combo_typed(self, key: str):
+        val = self.field_combos[key].get().strip()
+        if val and val != self.KEEP_VALUE:
+            self.field_vars[key].set(True)
+        else:
+            self.field_vars[key].set(False)
+
+    def _update_field_values_from_selection(self):
+        """
+        Inspects all currently selected files.
+        If all selected files have the same value for a field, populates the combobox with it.
+        If values differ, sets combobox to '< beibehalten >' and populates the dropdown list with all unique values!
+        """
+        selected_albums = [album for album, var in self.album_checkbox_vars if var.get()]
+
+        field_values: Dict[str, List[str]] = {
+            "album_artist": [],
+            "artist": [],
+            "composer": [],
+            "genre": [],
+            "year": [],
+            "disc_number": [],
+            "comment": []
+        }
+
+        for album in selected_albums:
+            tracks = album.get("tracks", [])
+            album_artist = album.get("album_artist") or (tracks[0].get("album_artist") if tracks else "") or ""
+            if album_artist:
+                field_values["album_artist"].append(album_artist)
+
+            for t in tracks:
+                if t.get("artist"):
+                    field_values["artist"].append(t["artist"])
+                if t.get("composer"):
+                    field_values["composer"].append(t["composer"])
+                if t.get("genre"):
+                    g_val = t["genre"] if isinstance(t["genre"], str) else "; ".join(t["genre"])
+                    field_values["genre"].append(g_val)
+                if t.get("year"):
+                    field_values["year"].append(str(t["year"]))
+                if t.get("disc_number"):
+                    field_values["disc_number"].append(str(t["disc_number"]))
+                if t.get("comment"):
+                    field_values["comment"].append(t["comment"])
+
+        for key, combo in self.field_combos.items():
+            vals = field_values[key]
+            unique_vals = list(dict.fromkeys([v for v in vals if v]))
+
+            if not unique_vals:
+                combo.configure(values=[self.KEEP_VALUE])
+                combo.set(self.KEEP_VALUE)
+                self.field_vars[key].set(False)
+            elif len(unique_vals) == 1:
+                single_val = unique_vals[0]
+                combo.configure(values=[single_val, self.KEEP_VALUE])
+                combo.set(single_val)
+                # Uncheck checkbox by default so user must check or modify to overwrite
+                self.field_vars[key].set(False)
+            else:
+                dropdown_options = [self.KEEP_VALUE] + unique_vals
+                combo.configure(values=dropdown_options)
+                combo.set(self.KEEP_VALUE)
+                self.field_vars[key].set(False)
 
     def _start_batch_apply(self):
         selected_albums = [album for album, var in self.album_checkbox_vars if var.get()]
@@ -166,9 +254,14 @@ class BatchEditTab(ctk.CTkFrame):
             tk.messagebox.showwarning("Keine Auswahl", "Bitte wähle mindestens ein Hörspiel/Album in der linken Liste aus.")
             return
 
-        active_fields = {k: self.field_entries[k].get().strip() for k, var in self.field_vars.items() if var.get()}
+        active_fields = {}
+        for k, var in self.field_vars.items():
+            val = self.field_combos[k].get().strip()
+            if var.get() or (val and val != self.KEEP_VALUE):
+                active_fields[k] = val if val != self.KEEP_VALUE else ""
+
         if not active_fields:
-            tk.messagebox.showwarning("Kein Feld aktiviert", "Bitte aktiviere mindestens ein Häkchen bei den zu ändernden Metadaten-Feldern.")
+            tk.messagebox.showwarning("Kein Feld aktiviert", "Bitte aktiviere mindestens ein Häkchen oder wähle/tippe einen Wert in den Feldern rechts.")
             return
 
         confirm_msg = f"Möchtest du die aktivierten Tags ({', '.join(active_fields.keys())}) wirklich auf {len(selected_albums)} Hörspiele anwenden?"
@@ -223,18 +316,21 @@ class BatchEditTab(ctk.CTkFrame):
                                 orig_disc = str(existing_id3["TPOS"])
 
                         # Merge overloads for activated fields
-                        new_album_artist = active_fields.get("album_artist", orig_album_artist)
-                        new_artist = active_fields.get("artist", orig_artist)
-                        new_composer = active_fields.get("composer", orig_composer)
-                        new_comment = active_fields.get("comment", orig_comment)
-                        new_disc = active_fields.get("disc_number", orig_disc)
+                        new_album_artist = active_fields["album_artist"] if "album_artist" in active_fields else orig_album_artist
+                        new_artist = active_fields["artist"] if "artist" in active_fields else orig_artist
+                        new_composer = active_fields["composer"] if "composer" in active_fields else orig_composer
+                        new_comment = active_fields["comment"] if "comment" in active_fields else orig_comment
+                        new_disc = active_fields["disc_number"] if "disc_number" in active_fields else orig_disc
 
-                        raw_year = active_fields.get("year")
-                        new_year = int(raw_year) if (raw_year and raw_year.isdigit()) else orig_year
+                        if "year" in active_fields:
+                            raw_year = active_fields["year"]
+                            new_year = int(raw_year) if (raw_year and raw_year.isdigit()) else None
+                        else:
+                            new_year = orig_year
 
-                        raw_genre = active_fields.get("genre")
-                        if raw_genre:
-                            new_genre = [g.strip() for g in raw_genre.replace(';', ',').split(',') if g.strip()]
+                        if "genre" in active_fields:
+                            raw_genre = active_fields["genre"]
+                            new_genre = [g.strip() for g in raw_genre.replace(';', ',').split(',') if g.strip()] if raw_genre else ["Hörspiel"]
                         else:
                             new_genre = orig_genre
 
