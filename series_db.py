@@ -256,3 +256,33 @@ class SeriesDatabase:
             del db[norm_key]
             return cls.save_db(db)
         return False
+
+    @classmethod
+    def get_known_series_defaults(cls, series_query: str) -> Optional[Dict[str, str]]:
+        if not series_query:
+            return None
+        norm = cls._normalize_key(series_query)
+        
+        known_map = {
+            "die drei ???": {"composer": "Carsten Bohn", "publisher": "EUROPA", "comment": "Jugend-Detektiv Hörspiel von EUROPA."},
+            "die drei fragezeichen": {"composer": "Carsten Bohn", "publisher": "EUROPA", "comment": "Jugend-Detektiv Hörspiel von EUROPA."},
+            "tkkg": {"composer": "Carsten Bohn", "publisher": "EUROPA", "comment": "Jugend-Krimi Hörspiel von EUROPA."},
+            "fünf freunde": {"composer": "Enid Blyton", "publisher": "EUROPA", "comment": "Abenteuer-Hörspiel nach Enid Blyton."},
+            "larry brent": {"composer": "H.G. Francis", "publisher": "EUROPA", "comment": "Grusel-Hörspiel nach den Romanen von A. F. Morland."},
+            "macabros": {"composer": "H.G. Francis", "publisher": "EUROPA", "comment": "Dämonen-Hörspiel von H.G. Francis."},
+            "bibi blocksberg": {"composer": "Elfie Donnelly", "publisher": "Kiddinx", "comment": "Kinder-Hörspiel von Kiddinx."},
+            "bibi und tina": {"composer": "Elfie Donnelly", "publisher": "Kiddinx", "comment": "Pferde-Abenteuer Hörspiel von Kiddinx."},
+            "benjamin blümchen": {"composer": "Elfie Donnelly", "publisher": "Kiddinx", "comment": "Kinder-Hörspiel von Kiddinx."},
+            "geisterjäger john sinclair": {"composer": "Jason Dark", "publisher": "Lübbe Audio", "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."},
+            "john sinclair": {"composer": "Jason Dark", "publisher": "Lübbe Audio", "comment": "Grusel-Hörspiel nach den Romanen von Jason Dark."},
+            "gabriel burns": {"composer": "Volker Sponholz", "publisher": "Folgenreich", "comment": "Mystery-Hörspielserie von Folgenreich."},
+            "jan tenner": {"composer": "Dick Farlow", "publisher": "Karussell", "comment": "Science-Fiction Hörspielserie von Karussell."},
+            "sherlock holmes": {"composer": "Arthur Conan Doyle", "publisher": "Maritim", "comment": "Kriminal-Hörspiel nach Sir Arthur Conan Doyle."},
+            "offenbarung 23": {"composer": "Jan Gaspard", "publisher": "Lübbe Audio", "comment": "Verschwörungs-Thriller Hörspiel."},
+            "alf": {"composer": "Siegfried Rabe", "publisher": "Karussell", "comment": "Kult-Comedy Hörspiel nach der US-Sitcom."}
+        }
+
+        for k, info in known_map.items():
+            if k in norm or norm in k:
+                return info
+        return None

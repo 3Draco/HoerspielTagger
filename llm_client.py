@@ -110,6 +110,33 @@ class AlbumMetadata(BaseModel):
                 self.episode_title = match.group(1).strip()
                 self.album = f"{self.series_part:02d} - {self.episode_title}"
 
+        # Automatic intelligent fallbacks for composer, publisher, comment
+        series_clean = (self.series_name or self.album_artist or self.series or "").strip()
+        try:
+            from series_db import SeriesDatabase
+            known_defaults = SeriesDatabase.get_known_series_defaults(series_clean)
+            if known_defaults:
+                if not self.composer:
+                    self.composer = known_defaults["composer"]
+                    self.author = known_defaults["composer"]
+                if not self.publisher:
+                    self.publisher = known_defaults["publisher"]
+                if not self.comment:
+                    self.comment = known_defaults["comment"]
+        except Exception:
+            pass
+
+        if not self.composer and series_clean:
+            self.composer = series_clean
+            self.author = series_clean
+
+        if not self.publisher:
+            self.publisher = "EUROPA"
+
+        if not self.comment and (self.album or series_clean):
+            title_text = self.episode_title or self.album or series_clean
+            self.comment = f"Hörspiel: {title_text}"
+
 class LLMClient:
     """Handles communication with the LLM to get cleaned metadata and file names."""
 
