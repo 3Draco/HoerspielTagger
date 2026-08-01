@@ -369,7 +369,10 @@ class SeriesDatabase:
                 "genres": genres_list,
                 "genre": gen_str,
                 "aliases": aliases,
-                "aliases_str": aliases_str
+                "aliases_str": aliases_str,
+                "composer": data.get("composer", ""),
+                "publisher": data.get("publisher", ""),
+                "comment": data.get("comment", "")
             })
         return sorted(result, key=lambda x: x["display_name"].lower())
 
