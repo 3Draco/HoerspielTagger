@@ -2333,7 +2333,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     composer=item.get("composer"),
                     publisher=item.get("publisher"),
                     comment=item.get("comment"),
-                    disc_number=item.get("disc_number")
+                    disc_number=item.get("disc_number"),
+                    episode_title=item.get("episode_title"),
+                    series_part=item.get("series_part")
                 )
                 self.cover_bytes = saved_cover
 
@@ -2365,7 +2367,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         composer: Optional[str] = None,
         publisher: Optional[str] = None,
         comment: Optional[str] = None,
-        disc_number: Optional[str] = None
+        disc_number: Optional[str] = None,
+        episode_title: Optional[str] = None,
+        series_part: Optional[Any] = None
     ):
         if composer is None:
             composer = self.form_entries["composer"].get().strip() if "composer" in self.form_entries else None
@@ -2531,9 +2535,28 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 # Determine target folder path (supports subfolders via '/')
                 folder_pattern = self.structure_tab.get_folder_pattern() if hasattr(self, "structure_tab") else ""
                 if self.rename_folder_var.get() and folder_pattern:
+                    if episode_title is None:
+                        episode_title = self.form_entries["episode_title"].get().strip() if "episode_title" in self.form_entries else (album_name.split(" - ", 1)[-1] if " - " in album_name else album_name)
+                    
+                    if series_part is None:
+                        ep_part_str = self.form_entries["series_part"].get().strip() if "series_part" in self.form_entries else ""
+                        try:
+                            series_part_val = int(ep_part_str) if ep_part_str.isdigit() else None
+                        except Exception:
+                            series_part_val = None
+                    else:
+                        try:
+                            series_part_val = int(series_part) if str(series_part).isdigit() else series_part
+                        except Exception:
+                            series_part_val = series_part
+
+                    series_name = self.form_entries["series"].get().strip() if "series" in self.form_entries else album_artist
+
                     ctx = {
-                        "series": album_artist,
+                        "series": series_name or album_artist,
                         "album_artist": album_artist,
+                        "series_part": series_part_val,
+                        "episode_title": episode_title,
                         "album": album_name,
                         "year": year,
                         "artist": album_artist
