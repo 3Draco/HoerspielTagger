@@ -2570,7 +2570,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
                 if folder_path != final_folder_path and not final_folder_path.exists():
                     try:
-                        os.rename(folder_path, final_folder_path)
+                        final_folder_path.parent.mkdir(parents=True, exist_ok=True)
+                        try:
+                            os.rename(folder_path, final_folder_path)
+                        except OSError:
+                            import shutil
+                            shutil.move(str(folder_path), str(final_folder_path))
+
                         album["folder_path"] = str(final_folder_path)
                         # Update key in album_states if folder renamed
                         old_key = str(folder_path)
