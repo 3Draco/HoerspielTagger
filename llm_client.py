@@ -165,12 +165,26 @@ class LLMClient:
 
         system_prompt = custom_prompt or getattr(config, 'LLM_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT) or DEFAULT_SYSTEM_PROMPT
 
+        # Perform automatic Web Pre-Search to feed real live web facts into LLM prompt
+        clean_f_name = re.sub(r'[\-_:\*\|\?\"]', ' ', folder_name)
+        search_query = f"{clean_f_name} Hörspiel Verlag Autor Label"
+        web_snippets = []
+        try:
+            from web_searcher import WebSearcher
+            web_snippets = WebSearcher.search(search_query, max_results=4)
+        except Exception as ws_err:
+            print(f"[LLMClient Info] Web searcher notice: {ws_err}")
+
+        web_context_str = ""
+        if web_snippets:
+            web_context_str = "\n\nLIVE WEB SEARCH RESULTS (Use these exact real-world web facts to fill 'publisher', 'composer', 'year', and 'comment'):\n" + "\n".join(f"- {s}" for s in web_snippets)
+
         user_content = (
             f"Please analyze this audio drama folder context and generate the clean metadata JSON.\n"
-            f"IMPORTANT SEARCH & METADATA INSTRUCTIONS:\n"
-            f"- For 'publisher' (Hörspiel-Label/Verlag) and 'composer' (Komponist/Autor): Use your knowledge base or live web search (if MCP/websearch is available) to identify the EXACT German audio drama label (e.g. 'Kiddinx', 'Maritim', 'EUROPA', 'Karussell', 'Universal', 'Zauberstern') and author/composer for this specific series! DO NOT guess 'EUROPA' if the series is produced by another label.\n"
-            f"- For 'comment': Use your knowledge base or live web search (if MCP/websearch is available) to write a clean 2-3 sentence German plot summary / Klappentext for this specific episode.\n\n"
+            f"IMPORTANT METADATA INSTRUCTIONS:\n"
+            f"- Use the provided 'LIVE WEB SEARCH RESULTS' above (if available) to determine the exact publisher (Label), composer/author, release year, and a clean 2-3 sentence German plot summary ('comment').\n\n"
             f"Folder Context:\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
+            f"{web_context_str}"
         )
 
         try:

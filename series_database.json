@@ -185,5 +185,29 @@
     "composer": "Siegfried Rabe",
     "publisher": "Karussell",
     "comment": "Der außerirdische ALF sorgt im Haus der Tanner für weihnachtliches Chaos, als er versucht, die Festlichkeiten auf seine eigene, exzentrische Weise zu gestalten. Eine humorvolle Episode über die Begegnung zwischen Mensch und Außerirdischem zur Weihnachtszeit."
+  },
+  "abenteuer im weltraum": {
+    "display_name": "Abenteuer im Weltraum",
+    "genres": [
+      "Hörspiel",
+      "Science-Fiction"
+    ],
+    "genre": "Hörspiel; Science-Fiction",
+    "aliases": [],
+    "composer": "Peter Lustig",
+    "publisher": "KIOSK",
+    "comment": "Eine gefährliche Expedition führt die Crew zu einem fremden Planeten, der vollständig mit riesigen Sonnenblumen bedeckt ist. Doch hinter der schönen Fassade verbirgt sich eine tödliche Bedrohung, die die Überlebensfähigkeit der Reisenden auf die Probe stellt."
+  },
+  "u-666": {
+    "display_name": "U-666",
+    "genres": [
+      "Hörspiel",
+      "Horror"
+    ],
+    "genre": "Hörspiel; Horror",
+    "aliases": [],
+    "composer": "",
+    "publisher": "",
+    "comment": ""
   }
 }
