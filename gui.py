@@ -811,17 +811,16 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     self.cover_bytes = None
                     self.current_ctk_image = None
                     self.cover_img_label.configure(text="Kein Cover geladen", image=None)
-                    self.cover_status_lbl.configure(text="Cover-Suche erfolglos", text_color="#7a2b2b")
+                    self.cover_status_lbl.configure(text="", text_color="gray")
                     self._save_current_album_state()
                 self.after(0, fail)
 
             threading.Thread(target=fetch, daemon=True).start()
         else:
-            # Clear cover if no sources checked
             self.cover_bytes = None
             self.current_ctk_image = None
             self.cover_img_label.configure(text="Kein Cover geladen", image=None)
-            self.cover_status_lbl.configure(text="Keine Quelle ausgewählt", text_color="#7a2b2b")
+            self.cover_status_lbl.configure(text="", text_color="gray")
             self._save_current_album_state()
 
     # ================= EVENT HANDLERS & LOGIC =================
@@ -1398,8 +1397,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
                 # 2. Cover Art search for this folder
                 cover_bytes = None
-                cover_status = "Cover-Suche erfolglos"
-                cover_color = "#7a2b2b"
+                cover_status = "Kein Cover geladen"
+                cover_color = "gray"
 
                 use_embedded = self.source_embedded_var.get() and album["has_embedded_cover"]
 

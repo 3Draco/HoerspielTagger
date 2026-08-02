@@ -101,29 +101,46 @@ class CoverDownloader:
             if match:
                 ep_num_str = match.group(1)
 
+        # Build artist variants (e.g. "Asterix & Obelix" -> ["Asterix & Obelix", "Asterix"])
+        artist_variants = []
+        if clean_artist:
+            artist_variants.append(clean_artist)
+            if " & " in clean_artist:
+                sub_art = clean_artist.split(" & ")[0].strip()
+                if sub_art and sub_art not in artist_variants:
+                    artist_variants.append(sub_art)
+            if " und " in clean_artist.lower():
+                sub_art = re.split(r'\bund\b', clean_artist, flags=re.IGNORECASE)[0].strip()
+                if sub_art and sub_art not in artist_variants:
+                    artist_variants.append(sub_art)
+
         queries = []
-        if clean_artist and ep_num_str and clean_title:
-            queries.append(f"{clean_artist} Folge {ep_num_str} {clean_title}")
-            queries.append(f"{clean_artist} {ep_num_str} {clean_title}")
+        # 1. Primary queries: Artist variant + clean title (e.g. "Asterix der Gallier", "Asterix 01 der Gallier")
+        for art in artist_variants:
+            if clean_title:
+                queries.append(f"{art} {clean_title}")
+            if ep_num_str and clean_title:
+                try:
+                    ep_int = int(ep_num_str)
+                    queries.append(f"{art} {ep_int:02d} {clean_title}")
+                except Exception:
+                    pass
+                queries.append(f"{art} {ep_num_str} {clean_title}")
 
-        if clean_artist and ep_num_str:
-            queries.append(f"{clean_artist} Folge {ep_num_str}")
-            queries.append(f"{clean_artist} {ep_num_str}")
+        # 2. Hörspiel prefix queries
+        for art in artist_variants:
+            if clean_title:
+                queries.append(f"Hörspiel {art} {clean_title}")
 
-        if clean_artist and clean_title:
-            queries.append(f"{clean_artist} {clean_title}")
-            queries.append(f"Hörspiel {clean_artist} {clean_title}")
+        # 3. Fallback queries with album / title alone
+        if clean_title:
+            queries.append(f"Hörspiel {clean_title}")
+            queries.append(clean_title)
 
         if clean_artist and album:
             clean_album = cls._clean_string(album)
             if clean_album and clean_album != clean_title:
                 queries.append(f"{clean_artist} {clean_album}")
-
-        # Fallback if no artist was specified
-        if not clean_artist and clean_title:
-            if ep_num_str:
-                queries.append(f"Folge {ep_num_str} {clean_title}")
-            queries.append(clean_title)
 
         unique_queries = []
         for q in queries:
