@@ -808,18 +808,13 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                             self.after(0, apply)
                             return
                 def fail():
-                    self.cover_bytes = None
-                    self.current_ctk_image = None
-                    self.cover_img_label.configure(text="Kein Cover geladen", image=None)
+                    self._clear_cover_display()
                     self.cover_status_lbl.configure(text="", text_color="gray")
                     self._save_current_album_state()
                 self.after(0, fail)
-
             threading.Thread(target=fetch, daemon=True).start()
         else:
-            self.cover_bytes = None
-            self.current_ctk_image = None
-            self.cover_img_label.configure(text="Kein Cover geladen", image=None)
+            self._clear_cover_display()
             self.cover_status_lbl.configure(text="", text_color="gray")
             self._save_current_album_state()
 
@@ -1171,11 +1166,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 text_color=state.get("cover_status_color", "#2b712b")
             )
         else:
-            self.current_ctk_image = None
-            try:
-                self.cover_img_label.configure(text="Kein Cover geladen", image=None)
-            except Exception:
-                pass
+            self._clear_cover_display()
             self.cover_status_lbl.configure(
                 text=state.get("cover_status", ""),
                 text_color=state.get("cover_status_color", "gray")
@@ -1210,6 +1201,20 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             if not self._restore_album_state(self.current_album_idx):
                 self._clear_editor()
 
+    def _clear_cover_display(self):
+        """Safely wipes cover image data and forces CustomTkinter CTkLabel to drop image rendering."""
+        self.cover_bytes = None
+        self.current_ctk_image = None
+        try:
+            self.cover_img_label.configure(image="", text="Kein Cover geladen")
+            if hasattr(self.cover_img_label, "_image"):
+                self.cover_img_label._image = None
+            if hasattr(self.cover_img_label, "_draw"):
+                self.cover_img_label._draw()
+        except Exception:
+            pass
+        self.crop_cover_btn.configure(state="disabled")
+
     def _clear_editor(self):
         # Clear fields
         for ent in self.form_entries.values():
@@ -1219,14 +1224,9 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             ent.delete(0, tk.END)
             ent.configure(state="disabled")
         
-        # Clear cover safely without pyimage TclError
-        self.current_ctk_image = None
-        try:
-            self.cover_img_label.configure(text="Kein Cover geladen", image=None)
-        except Exception:
-            pass
+        # Clear cover safely
+        self._clear_cover_display()
         self.cover_status_lbl.configure(text="")
-        self.cover_bytes = None
         self.current_metadata = None
         
         # Clear dynamic track rows
