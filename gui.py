@@ -2685,13 +2685,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         except Exception as err:
             messagebox.showerror("Fehler", f"Konnte Kapitel nicht lesen: {err}")
 
-            self.after(0, success_notify)
-
-        except Exception as write_err:
-            self.after(0, lambda: messagebox.showerror("Schreibfehler", f"Fehler beim Schreiben der Änderungen: {write_err}"))
-        finally:
-            self.after(0, lambda: self.apply_btn.configure(state="normal", text="Speichern & Umbenennen"))
-
     def _open_google_cover_search(self):
         """Opens a web browser with a Google Images query for the current audio drama cover."""
         import urllib.parse
