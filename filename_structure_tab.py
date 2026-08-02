@@ -7,7 +7,7 @@ class FilenameStructureTab(ctk.CTkScrollableFrame):
     tag insertion buttons, track reordering list, and real-time live preview.
     """
 
-    DEFAULT_FOLDER_PATTERN = "%Serie%/%Serie% %Folgennummer:02d% - %Folgentitel%"
+    DEFAULT_FOLDER_PATTERN = "%Serie% %Folgennummer:02d% - %Folgentitel%"
     DEFAULT_FILE_PATTERN = "%Track:02d% - %Folgentitel%.mp3"
 
     def __init__(self, parent, on_update_live_preview: Callable[[], None]):

@@ -1288,7 +1288,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         # Update bottom-left status bar
         self.llm_status_lbl.configure(text="⏳ LLM Analyse gestartet...", text_color="orange")
 
-        self.content_tabview.set("Metadaten bearbeiten und taggen")
+        self.content_tabview.set("🏷️ Metadaten-Tags")
 
         # Open blocking progress dialog
         from analysis_progress_dialog import AnalysisProgressDialog
@@ -1505,7 +1505,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     self.after(0, lambda target_idx=idx: self._restore_album_state(target_idx))
 
             def on_batch_done():
-                self.content_tabview.set("Metadaten bearbeiten und taggen")
+                self.content_tabview.set("🏷️ Metadaten-Tags")
                 self._restore_album_state(self.current_album_idx)
                 self.apply_all_btn.configure(state="normal")
                 
@@ -1873,32 +1873,46 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         }
 
         if self.rename_folder_var.get() and folder_pattern:
-            ep_folder_name = self._format_pattern(folder_pattern, ctx)
+            ep_folder_raw = self._format_pattern(folder_pattern, ctx)
         else:
-            ep_folder_name = folder_path_name
+            ep_folder_raw = folder_path_name
 
-        if not ep_folder_name.strip():
-            ep_folder_name = album or "Unbenannter Ordner"
+        if not ep_folder_raw.strip():
+            ep_folder_raw = album or "Unbenannter Ordner"
 
-        for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-            ep_folder_name = ep_folder_name.replace(char, "_")
+        import re
+        folder_segments = [seg.strip() for seg in re.split(r'[/\\]', ep_folder_raw) if seg.strip()]
+        clean_segments = []
+        for seg in folder_segments:
+            for char in [':', '*', '?', '"', '<', '>', '|']:
+                seg = seg.replace(char, "_")
+            clean_segments.append(seg)
+
+        if not clean_segments:
+            clean_segments = ["Unbenannter Ordner"]
+
+        # Insert parent series folder if requested and not already top segment
+        if self.parent_series_var.get() and album_artist:
+            clean_series = album_artist
+            for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
+                clean_series = clean_series.replace(char, "_")
+            if clean_segments[0].lower() != clean_series.lower():
+                clean_segments.insert(0, clean_series)
 
         self.structure_tab.preview_textbox.delete("0.0", tk.END)
 
         tree_lines = []
-        indent = ""
+        current_indent = ""
 
-        # Build tree structure
-        if self.parent_series_var.get() and album_artist:
-            clean_series = album_artist
-            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                clean_series = clean_series.replace(char, "_")
-            tree_lines.append(f"📁 {clean_series}")
-            tree_lines.append(f"└── 📁 {ep_folder_name}")
-            indent = "     "
-        else:
-            tree_lines.append(f"📁 {ep_folder_name}")
-            indent = ""
+        for idx, seg in enumerate(clean_segments):
+            if idx == 0:
+                tree_lines.append(f"📁 {seg}")
+                current_indent = "     "
+            else:
+                tree_lines.append(f"{current_indent[:-5]}└── 📁 {seg}")
+                current_indent += "     "
+
+        indent = current_indent[:-5]
 
         if self.merge_var.get():
             merged_filename = f"{album}.mp3" if album else "Hörspiel_Gesamt.mp3"
