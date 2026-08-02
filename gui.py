@@ -1392,18 +1392,29 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     if pre_matched.get("episode_num") is not None:
                         metadata.series_part = pre_matched["episode_num"]
 
-                # Check SeriesDatabase for genre consistency / instant registration
+                # Check SeriesDatabase for full metadata precedence & instant registration
                 try:
                     from series_db import SeriesDatabase
                     series_name = metadata.series_name or metadata.album_artist or metadata.series
                     if series_name:
-                        known_genre = SeriesDatabase.get_genre(series_name)
-                        if known_genre:
-                            metadata.genre = known_genre
-                            metadata.formatted_genre = known_genre
+                        db_info = SeriesDatabase.get_series_info(series_name)
+                        if db_info:
+                            if db_info.get("genre"):
+                                metadata.genre = db_info["genre"]
+                                metadata.formatted_genre = db_info["genre"]
+                            if db_info.get("publisher"):
+                                metadata.publisher = db_info["publisher"]
+                            if db_info.get("composer"):
+                                metadata.composer = db_info["composer"]
+                                metadata.author = db_info["composer"]
+                            if db_info.get("comment"):
+                                metadata.comment = db_info["comment"]
+                            if db_info.get("display_name"):
+                                metadata.series_name = db_info["display_name"]
+                                metadata.album_artist = db_info["display_name"]
                         elif metadata.genre:
                             # INSTANT REGISTRATION: First episode registers series genre immediately!
-                            SeriesDatabase.set_series_genre(series_name, metadata.genre)
+                            SeriesDatabase.set_series_genre(series_name, metadata.genre, overwrite_existing=False)
                 except Exception as db_err:
                     print(f"[SeriesDB Info] {db_err}")
 
@@ -2400,7 +2411,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     genre=genre,
                     composer=composer,
                     publisher=publisher,
-                    comment=comment
+                    comment=comment,
+                    overwrite_existing=False
                 )
             except Exception as db_err:
                 print(f"[SeriesDB Info] {db_err}")

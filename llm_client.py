@@ -107,19 +107,25 @@ class AlbumMetadata(BaseModel):
                 self.episode_title = match.group(1).strip()
                 self.album = f"{self.series_part:02d} - {self.episode_title}"
 
-        # Automatic intelligent fallbacks for composer, publisher, comment
+        # Database entries take absolute precedence over LLM output for non-empty fields!
         series_clean = (self.series_name or self.album_artist or self.series or "").strip()
         try:
             from series_db import SeriesDatabase
-            known_defaults = SeriesDatabase.get_known_series_defaults(series_clean)
-            if known_defaults:
-                if not self.composer:
-                    self.composer = known_defaults["composer"]
-                    self.author = known_defaults["composer"]
-                if not self.publisher:
-                    self.publisher = known_defaults["publisher"]
-                if not self.comment:
-                    self.comment = known_defaults["comment"]
+            info = SeriesDatabase.get_series_info(series_clean)
+            if info:
+                if info.get("publisher"):
+                    self.publisher = info["publisher"]
+                if info.get("composer"):
+                    self.composer = info["composer"]
+                    self.author = info["composer"]
+                if info.get("comment"):
+                    self.comment = info["comment"]
+                if info.get("display_name"):
+                    self.series_name = info["display_name"]
+                    self.album_artist = info["display_name"]
+                if info.get("genre"):
+                    self.genre = info["genre"]
+                    self.formatted_genre = info["genre"]
         except Exception:
             pass
 
