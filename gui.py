@@ -1881,19 +1881,21 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             ep_folder_raw = album or "Unbenannter Ordner"
 
         import re
-        folder_segments = [seg.strip() for seg in re.split(r'[/\\]', ep_folder_raw) if seg.strip()]
+        folder_segments = [seg.strip(" -_\t\r\n") for seg in re.split(r'[/\\]', ep_folder_raw) if seg.strip()]
         clean_segments = []
         for seg in folder_segments:
             for char in [':', '*', '?', '"', '<', '>', '|']:
                 seg = seg.replace(char, "_")
-            clean_segments.append(seg)
+            seg = seg.strip(" -_\t\r\n")
+            if seg:
+                clean_segments.append(seg)
 
         if not clean_segments:
             clean_segments = ["Unbenannter Ordner"]
 
         # Insert parent series folder if requested and not already top segment
         if self.parent_series_var.get() and album_artist:
-            clean_series = album_artist
+            clean_series = album_artist.strip(" -_\t\r\n")
             for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
                 clean_series = clean_series.replace(char, "_")
             if clean_segments[0].lower() != clean_series.lower():
@@ -2526,26 +2528,45 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
             # 4. Folder Renaming and Parent Series Folder Organization
             if not is_flat:
-                target_ep_folder_name = album_name if self.rename_folder_var.get() and album_name else folder_path.name
-                for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                    target_ep_folder_name = target_ep_folder_name.replace(char, "_")
+                # Determine target folder path (supports subfolders via '/')
+                folder_pattern = self.structure_tab.get_folder_pattern() if hasattr(self, "structure_tab") else ""
+                if self.rename_folder_var.get() and folder_pattern:
+                    ctx = {
+                        "series": album_artist,
+                        "album_artist": album_artist,
+                        "album": album_name,
+                        "year": year,
+                        "artist": album_artist
+                    }
+                    target_ep_folder_raw = self._format_pattern(folder_pattern, ctx)
+                else:
+                    target_ep_folder_raw = album_name if (self.rename_folder_var.get() and album_name) else album["folder_name"]
+
+                import re
+                raw_segs = [seg.strip(" -_\t\r\n") for seg in re.split(r'[/\\]', target_ep_folder_raw) if seg.strip()]
+                clean_segs = []
+                for seg in raw_segs:
+                    for char in [':', '*', '?', '"', '<', '>', '|']:
+                        seg = seg.replace(char, "_")
+                    seg = seg.strip(" -_\t\r\n")
+                    if seg:
+                        clean_segs.append(seg)
+
+                if not clean_segs:
+                    clean_segs = [album_name or "Unbenannter Ordner"]
 
                 if self.parent_series_var.get() and album_artist:
-                    clean_series_name = album_artist
-                    for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                        clean_series_name = clean_series_name.replace(char, "_")
+                    clean_series = album_artist.strip(" -_\t\r\n")
+                    for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
+                        clean_series = clean_series.replace(char, "_")
+                    if clean_segs[0].lower() != clean_series.lower():
+                        clean_segs.insert(0, clean_series)
 
-                    # If current parent folder is not already the series folder
-                    if folder_path.parent.name.lower() != clean_series_name.lower():
-                        series_dir = folder_path.parent / clean_series_name
-                        series_dir.mkdir(parents=True, exist_ok=True)
-                        final_folder_path = series_dir / target_ep_folder_name
-                    else:
-                        final_folder_path = folder_path.parent / target_ep_folder_name
-                elif self.rename_folder_var.get():
-                    final_folder_path = folder_path.parent / target_ep_folder_name
-                else:
-                    final_folder_path = folder_path
+                parent_base = folder_path.parent
+                target_dir = parent_base
+                for seg in clean_segs:
+                    target_dir = target_dir / seg
+                final_folder_path = target_dir
 
                 if folder_path != final_folder_path and not final_folder_path.exists():
                     try:
