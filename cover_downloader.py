@@ -141,7 +141,9 @@ class CoverDownloader:
 
         # Sort candidates by relevance score descending
         candidates.sort(key=lambda x: x["score"], reverse=True)
-        return candidates
+        import config
+        max_count = getattr(config, 'MAX_COVER_COUNT', 6)
+        return candidates[:max_count]
 
     @classmethod
     def _search_discogs(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):

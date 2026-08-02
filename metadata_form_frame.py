@@ -51,25 +51,6 @@ class MetadataFormFrame(ctk.CTkScrollableFrame):
         self._create_form_row(10, "Disc-Nummer", "TPOS / discnumber", "Disc-Nummer (z. B. 1)", "disc_number")
         self._create_form_row(11, "Kommentar", "COMM / comment", "Kommentar oder Notiz", "comment")
 
-        # Separator for Tracks
-        self.tracks_title = ctk.CTkLabel(self, text="Kapitel / Tracks", font=ctk.CTkFont(size=14, weight="bold"))
-        self.tracks_title.grid(row=12, column=0, columnspan=4, padx=10, pady=(20, 10), sticky="w")
-
-        # Frame to hold dynamic track rows
-        self.tracks_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.tracks_container.grid(row=13, column=0, columnspan=4, sticky="nsew", padx=5, pady=5)
-        self.tracks_container.grid_columnconfigure(1, weight=3) # clean title entry
-
-        # Live Preview Card (Result after Rename/Merge)
-        self.preview_card = ctk.CTkFrame(self, corner_radius=8)
-        self.preview_card.grid(row=14, column=0, columnspan=4, sticky="nsew", padx=5, pady=(15, 10))
-
-        preview_header = ctk.CTkLabel(self.preview_card, text="🔍 Live-Vorschau (Ziel-Ordner & MP3-Dateinamen nach Umbenennen):", font=ctk.CTkFont(size=13, weight="bold"))
-        preview_header.pack(anchor="w", padx=12, pady=(10, 4))
-
-        self.preview_textbox = ctk.CTkTextbox(self.preview_card, height=130, font=ctk.CTkFont(family="Consolas", size=11))
-        self.preview_textbox.pack(fill="both", expand=True, padx=12, pady=(4, 10))
-
     def _create_form_row(self, row_idx: int, label_text: str, id3_tag: str, hint_text: str, key: str):
         # Column 0: Label
         lbl = ctk.CTkLabel(self, text=label_text, font=ctk.CTkFont(weight="bold"))

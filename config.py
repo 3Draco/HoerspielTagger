@@ -16,6 +16,7 @@ LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:1234/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "lm-studio")
 LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "meta-llama-3-8b-instruct")
 DISCOGS_API_TOKEN = os.getenv("DISCOGS_API_TOKEN", "")
+MAX_COVER_COUNT = int(os.getenv("MAX_COVER_COUNT", "6"))
 
 
 DEFAULT_SYSTEM_PROMPT = (

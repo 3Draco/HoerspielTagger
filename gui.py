@@ -25,6 +25,7 @@ from metadata_form_frame import MetadataFormFrame
 from cover_panel_frame import CoverPanelFrame
 from summary_dialog import SummaryDialog
 from batch_edit_tab import BatchEditTab
+from filename_structure_tab import FilenameStructureTab
 import config
 
 class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
@@ -167,7 +168,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "source_itunes": self.source_itunes_var.get(),
                 "source_deezer": self.source_deezer_var.get(),
                 "source_musicbrainz": self.source_musicbrainz_var.get(),
-                "flat_episodes": self.flat_episodes_var.get()
+                "flat_episodes": self.flat_episodes_var.get(),
+                "max_cover_count": getattr(config, "MAX_COVER_COUNT", 6),
+                "folder_pattern": self.structure_tab.get_folder_pattern() if hasattr(self, "structure_tab") else "",
+                "file_pattern": self.structure_tab.get_file_pattern() if hasattr(self, "structure_tab") else ""
             }
             import json, hashlib, uuid, platform, base64
             from cryptography.fernet import Fernet
@@ -264,6 +268,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     def apply_btn(self): return self.cover_panel.apply_btn
     @property
     def apply_all_btn(self): return self.cover_panel.apply_all_btn
+    @property
+    def tracks_container(self): return self.structure_tab.tracks_container
+    @property
+    def preview_textbox(self): return self.structure_tab.preview_textbox
 
     def _build_ui(self):
         # Configure grid layout (2 rows, 2 columns)
@@ -330,8 +338,16 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.content_tabview = ctk.CTkTabview(self.main_frame)
         self.content_tabview.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.tab_scan = self.content_tabview.add("Scannen und Ordnerstruktur")
-        self.tab_edit = self.content_tabview.add("Metadaten bearbeiten und taggen")
+        self.tab_edit = self.content_tabview.add("🏷️ Metadaten-Tags")
+        self.tab_structure = self.content_tabview.add("📁 Dateinamen & Ordnerstruktur")
         self.tab_batch = self.content_tabview.add("⚡ Massenbearbeitung")
+
+        # Tab 3: Filename & Folder Structure UI Component
+        self.structure_tab = FilenameStructureTab(
+            self.tab_structure,
+            on_update_live_preview=self._update_live_preview
+        )
+        self.structure_tab.pack(expand=True, fill="both")
 
         # Massenbearbeitung UI Component
         self.batch_tab_ui = BatchEditTab(
@@ -427,6 +443,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         config.LLM_MODEL_ID = self.loaded_settings.get("model_id", config.LLM_MODEL_ID)
         config.LLM_SYSTEM_PROMPT = self.loaded_settings.get("system_prompt", config.LLM_SYSTEM_PROMPT)
         config.DISCOGS_API_TOKEN = self.loaded_settings.get("discogs_token", getattr(config, "DISCOGS_API_TOKEN", ""))
+        config.MAX_COVER_COUNT = self.loaded_settings.get("max_cover_count", getattr(config, "MAX_COVER_COUNT", 6))
+
+        if "folder_pattern" in self.loaded_settings and self.loaded_settings["folder_pattern"]:
+            self.structure_tab.set_folder_pattern(self.loaded_settings["folder_pattern"])
+        if "file_pattern" in self.loaded_settings and self.loaded_settings["file_pattern"]:
+            self.structure_tab.set_file_pattern(self.loaded_settings["file_pattern"])
 
         # Load options checkboxes
         self.dry_run_var.set(self.loaded_settings.get("dry_run", True))
@@ -1754,31 +1776,106 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         threading.Thread(target=fetch_cover_thread, args=(current_token,), daemon=True).start()
 
+    def _format_pattern(self, pattern: str, ctx: Dict[str, Any]) -> str:
+        """Evaluates custom pattern tokens using metadata context dictionary."""
+        if not pattern:
+            return ""
+
+        series = ctx.get("series") or ctx.get("album_artist") or ""
+        ep_num = ctx.get("series_part")
+        ep_title = ctx.get("episode_title") or ""
+        album = ctx.get("album") or ""
+        year = str(ctx.get("year") or "")
+        artist = ctx.get("artist") or series
+        track_num = ctx.get("track_number")
+        clean_title = ctx.get("clean_title") or ep_title
+
+        # Episode number variants
+        ep_str = str(ep_num) if ep_num is not None else ""
+        try:
+            ep_int = int(ep_num) if ep_num is not None else None
+            ep_02 = f"{ep_int:02d}" if ep_int is not None else ep_str
+            ep_03 = f"{ep_int:03d}" if ep_int is not None else ep_str
+        except (ValueError, TypeError):
+            ep_02 = ep_str
+            ep_03 = ep_str
+
+        # Track number variants
+        tr_str = str(track_num) if track_num is not None else ""
+        try:
+            tr_int = int(track_num) if track_num is not None else None
+            tr_02 = f"{tr_int:02d}" if tr_int is not None else tr_str
+            tr_03 = f"{tr_int:03d}" if tr_int is not None else tr_str
+        except (ValueError, TypeError):
+            tr_02 = tr_str
+            tr_03 = tr_str
+
+        res = pattern
+        res = res.replace("%Folgennummer:03d%", ep_03)
+        res = res.replace("%Folgennummer:02d%", ep_02)
+        res = res.replace("%Folgennummer%", ep_str)
+
+        res = res.replace("%Track:03d%", tr_03)
+        res = res.replace("%Track:02d%", tr_02)
+        res = res.replace("%Track%", tr_str)
+
+        res = res.replace("%Serie%", series)
+        res = res.replace("%Folgentitel%", clean_title)
+        res = res.replace("%Album%", album)
+        res = res.replace("%Jahr%", year)
+        res = res.replace("%Interpret%", artist)
+
+        return res
+
     def _update_live_preview(self):
         """Updates live preview of target folder name and target MP3 file names as a directory tree."""
-        if not hasattr(self, "preview_textbox"):
+        if not hasattr(self, "structure_tab") or not hasattr(self.structure_tab, "preview_textbox"):
             return
 
         album_artist = self.form_entries["album_artist"].get().strip() if "album_artist" in self.form_entries else ""
         album = self.form_entries["album"].get().strip() if "album" in self.form_entries else ""
+        ep_title = self.form_entries["episode_title"].get().strip() if "episode_title" in self.form_entries else ""
+        series = self.form_entries["series"].get().strip() if "series" in self.form_entries else album_artist
         
-        # Ensure single digit prefix in album name is padded to 2 digits for preview (e.g. "4 - " -> "04 - ")
-        import re
-        match = re.match(r"^(\d+)\s*-\s*(.*)$", album)
-        if match:
-            num_str, title_str = match.groups()
-            album = f"{int(num_str):02d} - {title_str}"
+        ep_part_str = self.form_entries["series_part"].get().strip() if "series_part" in self.form_entries else ""
+        try:
+            ep_part = int(ep_part_str) if ep_part_str.isdigit() else None
+        except Exception:
+            ep_part = None
+
+        year_str = self.form_entries["year"].get().strip() if "year" in self.form_entries else ""
+        try:
+            year_val = int(year_str) if year_str.isdigit() else None
+        except Exception:
+            year_val = None
+
         folder_path_name = self.scan_results[self.current_album_idx]["folder_name"] if (self.scan_results and self.current_album_idx in range(len(self.scan_results))) else "Unbenannter Ordner"
 
-        # Determine target folder name
-        ep_folder_name = album if (self.rename_folder_var.get() and album) else folder_path_name
-        if not ep_folder_name:
-            ep_folder_name = f"{album_artist} {album}" if (album_artist and album) else (album or "Unbenannter Ordner")
+        folder_pattern = self.structure_tab.get_folder_pattern()
+        file_pattern = self.structure_tab.get_file_pattern()
+
+        ctx = {
+            "series": series or album_artist,
+            "album_artist": album_artist,
+            "series_part": ep_part,
+            "episode_title": ep_title,
+            "album": album,
+            "year": year_val,
+            "artist": album_artist
+        }
+
+        if self.rename_folder_var.get() and folder_pattern:
+            ep_folder_name = self._format_pattern(folder_pattern, ctx)
+        else:
+            ep_folder_name = folder_path_name
+
+        if not ep_folder_name.strip():
+            ep_folder_name = album or "Unbenannter Ordner"
 
         for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
             ep_folder_name = ep_folder_name.replace(char, "_")
 
-        self.preview_textbox.delete("0.0", tk.END)
+        self.structure_tab.preview_textbox.delete("0.0", tk.END)
 
         tree_lines = []
         indent = ""
@@ -1819,12 +1916,22 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 except Exception:
                     num_val = idx
 
-                filename = f"{num_val:02d} - {clean_t}.mp3"
+                t_ctx = dict(ctx)
+                t_ctx["track_number"] = num_val
+                t_ctx["clean_title"] = clean_t
+
+                filename = self._format_pattern(file_pattern, t_ctx)
+                if not filename.lower().endswith(".mp3"):
+                    filename += ".mp3"
+
+                for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                    filename = filename.replace(char, "_")
+
                 is_last_file = (idx == file_count)
                 bullet = "└── " if is_last_file else "├── "
                 tree_lines.append(f"{indent}{bullet}📄 {filename}")
 
-        self.preview_textbox.insert("0.0", "\n".join(tree_lines))
+        self.structure_tab.preview_textbox.insert("0.0", "\n".join(tree_lines))
 
     def _move_track(self, index: int, direction: int):
         """Swaps track order up or down."""
@@ -1965,7 +2072,35 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 return
                 
             clean_title = row["title_entry"].get()
-            new_filename = f"{track_num:02d} - {clean_title}.mp3"
+            
+            ep_title = self.form_entries["episode_title"].get().strip() if "episode_title" in self.form_entries else clean_title
+            ep_part_str = self.form_entries["series_part"].get().strip() if "series_part" in self.form_entries else ""
+            try:
+                ep_part = int(ep_part_str) if ep_part_str.isdigit() else None
+            except Exception:
+                ep_part = None
+
+            series_name = self.form_entries["series"].get().strip() if "series" in self.form_entries else album_artist
+
+            t_ctx = {
+                "series": series_name or album_artist,
+                "album_artist": album_artist,
+                "series_part": ep_part,
+                "episode_title": ep_title,
+                "album": album_name,
+                "year": year,
+                "artist": album_artist,
+                "track_number": track_num,
+                "clean_title": clean_title
+            }
+
+            file_pattern = self.structure_tab.get_file_pattern()
+            new_filename = self._format_pattern(file_pattern, t_ctx)
+            if not new_filename.lower().endswith(".mp3"):
+                new_filename += ".mp3"
+
+            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                new_filename = new_filename.replace(char, "_")
 
             changes.append({
                 "orig_filename": orig_filename,
