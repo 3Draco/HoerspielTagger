@@ -128,7 +128,7 @@ class AlbumMetadata(BaseModel):
             self.author = series_clean
 
         if not self.publisher:
-            self.publisher = "EUROPA"
+            self.publisher = ""
 
         if not self.comment and (self.album or series_clean):
             title_text = self.episode_title or self.album or series_clean
@@ -167,7 +167,9 @@ class LLMClient:
 
         user_content = (
             f"Please analyze this audio drama folder context and generate the clean metadata JSON.\n"
-            f"FOR THE 'comment' FIELD: Use your knowledge base or live web search (if MCP/websearch is available) to write a clean 2-3 sentence German plot summary / Klappentext for this specific episode!\n\n"
+            f"IMPORTANT SEARCH & METADATA INSTRUCTIONS:\n"
+            f"- For 'publisher' (Hörspiel-Label/Verlag) and 'composer' (Komponist/Autor): Use your knowledge base or live web search (if MCP/websearch is available) to identify the EXACT German audio drama label (e.g. 'Kiddinx', 'Maritim', 'EUROPA', 'Karussell', 'Universal', 'Zauberstern') and author/composer for this specific series! DO NOT guess 'EUROPA' if the series is produced by another label.\n"
+            f"- For 'comment': Use your knowledge base or live web search (if MCP/websearch is available) to write a clean 2-3 sentence German plot summary / Klappentext for this specific episode.\n\n"
             f"Folder Context:\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
         )
 
