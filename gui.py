@@ -977,7 +977,15 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         try:
             results = AudioScanner.scan_directory(self.target_dir)
             if hasattr(self, "dragged_paths") and self.dragged_paths:
-                results = [r for r in results if str(Path(r["folder_path"]).resolve()) in self.dragged_paths]
+                def _is_in_dragged(folder_p_str: str) -> bool:
+                    f_path = Path(folder_p_str).resolve()
+                    for dp in self.dragged_paths:
+                        dp_path = Path(dp).resolve()
+                        if f_path == dp_path or dp_path in f_path.parents:
+                            return True
+                    return False
+
+                results = [r for r in results if _is_in_dragged(r["folder_path"])]
 
             # If flat mode is active, treat each MP3 as a separate episode
             if self.flat_episodes_var.get():
