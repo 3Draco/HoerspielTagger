@@ -22,7 +22,7 @@ Automatically identifies series, episode numbers, album names, years, genres, an
 Searches for high-resolution cover artwork via iTunes and MusicBrainz API, with an integrated interactive cropping tool before embedding.
 
 3. Lossless Chapter Merge & Split
-Losslessly merges MP3 tracks using FFmpeg (with embedded ID3v2.3 chapter marks) or splits audio dramas back into individual tracks by chapters.
+Losslessly merges MP3 tracks using FFmpeg (with embedded ID3v2 chapter marks) or splits audio dramas back into individual tracks by chapters.
 
 4. Encrypted Local Settings
 Automatically saves window positions and form configurations bound to your hardware key (`app_config.dat`).
@@ -36,6 +36,10 @@ This tool works 100% offline and free of API costs using local LLM servers like 
 > 💡 **Tipp für beste Ergebnisse (LM Studio & MCP WebSearch)**:
 > Für optimale Ergebnisse – insbesondere für automatische, echte Klappentexte und Inhaltsangaben im Kommentar-Feld – empfiehlt es sich, in **LM Studio** den **MCP Server WebSearch** einzubinden.
 > **Wichtig**: Stelle in den LM Studio Einstellungen die MCP-Berechtigung von `Ask` (Nachfragen) auf `Allow` (Erlauben), damit das Sprachmodell ohne Unterbrechung autonom live im Web nach Folgen-Details und Klappentexten suchen kann.
+
+> 🎬 **FFmpeg Voraussetzung (für Zusammenfügen & Kapitel-Split)**:
+> Für das verlustfreie Zusammenfügen von MP3-Tracks zu einer Gesamt-Datei sowie für das automatisierte Auftrennen nach Kapiteln wird **FFmpeg** benötigt.
+> **Wichtig**: Stelle sicher, dass `ffmpeg` auf deinem System installiert und im Systempfad (`PATH`) eingetragen ist.
 
 --------------------------------------------------------
 
