@@ -54,18 +54,18 @@ class AlbumMetadata(BaseModel):
             self.author = self.composer
         # Normalize multi-genre list
         parsed_genres: List[str] = []
-        if isinstance(self.genres, list) and self.genres:
-            for item in self.genres:
-                if isinstance(item, str):
-                    for sub in item.replace(';', ',').split(','):
-                        clean_sub = sub.strip()
-                        if clean_sub and clean_sub not in parsed_genres:
-                            parsed_genres.append(clean_sub)
-        elif isinstance(self.genres, str) and self.genres:
-            for sub in str(self.genres).replace(';', ',').split(','):
+        def _add_llm_genre(raw_val: str):
+            for sub in raw_val.replace(';', ',').replace('/', ',').split(','):
                 clean_sub = sub.strip()
                 if clean_sub and clean_sub not in parsed_genres:
                     parsed_genres.append(clean_sub)
+
+        if isinstance(self.genres, list) and self.genres:
+            for item in self.genres:
+                if isinstance(item, str):
+                    _add_llm_genre(item)
+        elif isinstance(self.genres, str) and self.genres:
+            _add_llm_genre(str(self.genres))
 
         # Fallback from legacy genre fields if genres list was empty
         legacy_str = self.formatted_genre or self.genre
@@ -73,10 +73,7 @@ class AlbumMetadata(BaseModel):
             legacy_str = f"{self.primary_genre}; {self.secondary_genre}"
 
         if legacy_str:
-            for sub in str(legacy_str).replace(';', ',').split(','):
-                clean_sub = sub.strip()
-                if clean_sub and clean_sub not in parsed_genres:
-                    parsed_genres.append(clean_sub)
+            _add_llm_genre(str(legacy_str))
 
         if not parsed_genres:
             parsed_genres = ["Hörspiel"]

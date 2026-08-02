@@ -365,7 +365,7 @@ class BatchEditTab(ctk.CTkFrame):
 
                         if "genre" in active_fields:
                             raw_genre = active_fields["genre"]
-                            new_genre = [g.strip() for g in raw_genre.replace(';', ',').split(',') if g.strip()] if raw_genre else ["Hörspiel"]
+                            new_genre = [g.strip() for g in raw_genre.replace(';', ',').replace('/', ',').split(',') if g.strip()] if raw_genre else ["Hörspiel"]
                         else:
                             new_genre = orig_genre
 

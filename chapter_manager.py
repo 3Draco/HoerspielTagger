@@ -112,7 +112,7 @@ class ChapterManager:
             )
             tags.add(ctoc_frame)
 
-        tags.save(mp3_filepath, v2_version=3)
+        tags.save(mp3_filepath, v2_version=4)
 
     @classmethod
     def extract_chapters(cls, mp3_filepath: str) -> List[Dict[str, Any]]:
@@ -209,7 +209,7 @@ class ChapterManager:
             try:
                 split_tags = ID3()
                 split_tags.add(TIT2(encoding=3, text=title))
-                split_tags.save(str(out_filepath), v2_version=3)
+                split_tags.save(str(out_filepath), v2_version=4)
             except Exception:
                 pass
 

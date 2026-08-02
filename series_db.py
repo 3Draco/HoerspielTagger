@@ -38,23 +38,21 @@ class SeriesDatabase:
 
     @classmethod
     def _parse_genres(cls, raw_genres: Any) -> List[str]:
-        if isinstance(raw_genres, list):
-            res = []
-            for item in raw_genres:
-                if isinstance(item, str):
-                    for sub in item.replace(';', ',').split(','):
-                        clean_sub = sub.strip()
-                        if clean_sub and clean_sub not in res:
-                            res.append(clean_sub)
-            return res if res else ["Hörspiel"]
-        elif isinstance(raw_genres, str) and raw_genres.strip():
-            res = []
-            for sub in raw_genres.replace(';', ',').split(','):
+        res = []
+        def _add_sub(s: str):
+            for sub in s.replace(';', ',').replace('/', ',').split(','):
                 clean_sub = sub.strip()
                 if clean_sub and clean_sub not in res:
                     res.append(clean_sub)
-            return res if res else ["Hörspiel"]
-        return ["Hörspiel"]
+
+        if isinstance(raw_genres, list):
+            for item in raw_genres:
+                if isinstance(item, str):
+                    _add_sub(item)
+        elif isinstance(raw_genres, str) and raw_genres.strip():
+            _add_sub(raw_genres)
+
+        return res if res else ["Hörspiel"]
 
     DEFAULT_SERIES_DB = {
         "die drei ???": {

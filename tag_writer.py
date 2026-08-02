@@ -41,18 +41,18 @@ class TagWriter:
 
         # Process multi-genre list for Jellyfin / Plex ID3 multi-genre TCON frame
         genres_list: List[str] = []
-        if isinstance(genre, list):
-            for item in genre:
-                if isinstance(item, str):
-                    for sub in item.replace(';', ',').split(','):
-                        clean_sub = fix_encoding_corruptions(sub.strip())
-                        if clean_sub and clean_sub not in genres_list:
-                            genres_list.append(clean_sub)
-        elif isinstance(genre, str):
-            for sub in str(genre).replace(';', ',').split(','):
+        def _add_genre_item(raw_val: str):
+            for sub in raw_val.replace(';', ',').replace('/', ',').split(','):
                 clean_sub = fix_encoding_corruptions(sub.strip())
                 if clean_sub and clean_sub not in genres_list:
                     genres_list.append(clean_sub)
+
+        if isinstance(genre, list):
+            for item in genre:
+                if isinstance(item, str):
+                    _add_genre_item(item)
+        elif isinstance(genre, str):
+            _add_genre_item(str(genre))
 
         if not genres_list:
             genres_list = ["Hörspiel"]
