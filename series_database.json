@@ -206,8 +206,20 @@
     ],
     "genre": "Hörspiel; Horror",
     "aliases": [],
+    "composer": "André Hettrich",
+    "publisher": "Pandoras Play",
+    "comment": "Ein Hörspiel nach einer Hommage an den spekulativen Unterhaltungsfilm der siebziger und achtziger Jahre von André Hettrich. Sie sind der Stoßtrupp ins Inferno."
+  },
+  "asterix & obelix": {
+    "display_name": "Asterix & Obelix",
+    "genres": [
+      "Hörspiel",
+      "Abenteuer"
+    ],
+    "genre": "Hörspiel; Abenteuer",
+    "aliases": [],
     "composer": "",
-    "publisher": "",
+    "publisher": "Karussell",
     "comment": ""
   }
 }

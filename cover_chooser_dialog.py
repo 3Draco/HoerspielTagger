@@ -100,8 +100,14 @@ class CoverChooserDialog(ctk.CTkToplevel):
 
     def _run_async_search(self):
         """Runs candidate search in background thread."""
+        provider_limits = None
+        if hasattr(self.parent, "cover_panel") and hasattr(self.parent.cover_panel, "get_provider_limits"):
+            provider_limits = self.parent.cover_panel.get_provider_limits()
+        elif hasattr(self.parent, "get_provider_limits"):
+            provider_limits = self.parent.get_provider_limits()
+
         cands = CoverDownloader.search_cover_candidates(
-            self.artist, self.album, self.title_query, sources=self.sources, episode_num=self.episode_num
+            self.artist, self.album, self.title_query, sources=self.sources, episode_num=self.episode_num, provider_limits=provider_limits
         )
         self.after(0, lambda: self._on_search_completed(cands))
 

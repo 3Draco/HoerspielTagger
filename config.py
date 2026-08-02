@@ -18,6 +18,13 @@ LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "meta-llama-3-8b-instruct")
 DISCOGS_API_TOKEN = os.getenv("DISCOGS_API_TOKEN", "")
 MAX_COVER_COUNT = int(os.getenv("MAX_COVER_COUNT", "6"))
 
+COVER_LIMITS = {
+    "discogs": 3,
+    "itunes": 3,
+    "deezer": 3,
+    "musicbrainz": 3
+}
+
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a professional metadata tagging assistant for media servers (like Jellyfin, Plex) and offline hardware MP3 players.\n"

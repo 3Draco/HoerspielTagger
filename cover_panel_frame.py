@@ -1,14 +1,15 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 import customtkinter as ctk
+import config
 
 class CoverSourcesDialog(ctk.CTkToplevel):
-    """Modal dialog for selecting active online cover portals."""
+    """Modal dialog for selecting active online cover portals and their individual cover limits."""
 
     def __init__(self, parent, panel_frame):
         super().__init__(parent)
         self.panel_frame = panel_frame
-        self.title("⚙️ Cover-Portale konfigurieren")
-        self.geometry("380x300")
+        self.title("⚙️ Cover-Portale & Limits konfigurieren")
+        self.geometry("480x360")
         self.resizable(False, False)
 
         self.attributes("-topmost", True)
@@ -24,7 +25,7 @@ class CoverSourcesDialog(ctk.CTkToplevel):
                 parent_y = parent.winfo_rooty()
                 parent_w = parent.winfo_width()
                 parent_h = parent.winfo_height()
-                win_w, win_h = 380, 300
+                win_w, win_h = 480, 360
                 x = max(0, parent_x + (parent_w - win_w) // 2)
                 y = max(0, parent_y + (parent_h - win_h) // 2)
                 self.geometry(f"{win_w}x{win_h}+{x}+{y}")
@@ -37,14 +38,14 @@ class CoverSourcesDialog(ctk.CTkToplevel):
     def _build_ui(self):
         ctk.CTkLabel(
             self, 
-            text="🌐 Online Cover-Portale", 
+            text="🌐 Online Cover-Portale & Einzel-Limits", 
             font=ctk.CTkFont(size=15, weight="bold")
         ).pack(pady=(15, 5))
 
         ctk.CTkLabel(
             self, 
-            text="Wähle aus, auf welchen Portalen nach Hörspiel-Covern und Veröffentlichungsjahren gesucht werden soll:",
-            wraplength=340,
+            text="Wähle aus, auf welchen Portalen nach Hörspiel-Covern gesucht werden soll und wie viele Cover-Varianten pro Portal geladen werden (0 = Aus):",
+            wraplength=440,
             text_color="gray",
             font=ctk.CTkFont(size=11)
         ).pack(padx=20, pady=(0, 10))
@@ -52,37 +53,57 @@ class CoverSourcesDialog(ctk.CTkToplevel):
         frame = ctk.CTkFrame(self)
         frame.pack(padx=20, pady=5, fill="x")
 
-        self.cb_discogs = ctk.CTkCheckBox(
-            frame, text="📻 Discogs (Sehr gut für alte Hörspiele)", 
-            variable=self.panel_frame.source_discogs_var,
-            command=self.panel_frame.on_cover_source_changed
-        )
-        self.cb_discogs.pack(anchor="w", padx=15, pady=6)
+        portals = [
+            ("📻 Discogs (Sehr gut für alte Hörspiele)", self.panel_frame.source_discogs_var, self.panel_frame.limit_discogs_var),
+            ("🎵 iTunes / Apple Music (Hohe Auflösung)", self.panel_frame.source_itunes_var, self.panel_frame.limit_itunes_var),
+            ("🎧 Deezer", self.panel_frame.source_deezer_var, self.panel_frame.limit_deezer_var),
+            ("🎼 MusicBrainz", self.panel_frame.source_musicbrainz_var, self.panel_frame.limit_musicbrainz_var),
+        ]
 
-        self.cb_itunes = ctk.CTkCheckBox(
-            frame, text="🎵 iTunes / Apple Music (Hohe Auflösung)", 
-            variable=self.panel_frame.source_itunes_var,
-            command=self.panel_frame.on_cover_source_changed
-        )
-        self.cb_itunes.pack(anchor="w", padx=15, pady=6)
+        option_values = ["0", "1", "2", "3", "5", "6", "10", "15", "20"]
 
-        self.cb_deezer = ctk.CTkCheckBox(
-            frame, text="🎧 Deezer", 
-            variable=self.panel_frame.source_deezer_var,
-            command=self.panel_frame.on_cover_source_changed
-        )
-        self.cb_deezer.pack(anchor="w", padx=15, pady=6)
+        for idx, (label_text, cb_var, limit_var) in enumerate(portals):
+            row_frame = ctk.CTkFrame(frame, fg_color="transparent")
+            row_frame.pack(fill="x", padx=10, pady=6)
+            row_frame.grid_columnconfigure(0, weight=1)
 
-        self.cb_musicbrainz = ctk.CTkCheckBox(
-            frame, text="🎼 MusicBrainz", 
-            variable=self.panel_frame.source_musicbrainz_var,
-            command=self.panel_frame.on_cover_source_changed
-        )
-        self.cb_musicbrainz.pack(anchor="w", padx=15, pady=6)
+            cb = ctk.CTkCheckBox(
+                row_frame, 
+                text=label_text, 
+                variable=cb_var,
+                command=lambda v=cb_var, l=limit_var: self._on_cb_toggled(v, l)
+            )
+            cb.grid(row=0, column=0, sticky="w")
+
+            lbl_max = ctk.CTkLabel(row_frame, text="Max:", text_color="gray")
+            lbl_max.grid(row=0, column=1, padx=(10, 4), sticky="e")
+
+            opt = ctk.CTkOptionMenu(
+                row_frame,
+                values=option_values,
+                variable=limit_var,
+                width=65,
+                command=lambda val, v=cb_var: self._on_opt_changed(val, v)
+            )
+            opt.grid(row=0, column=2, sticky="e")
 
         ctk.CTkButton(
             self, text="Fertig", width=120, command=self.destroy, fg_color="#1f538d"
         ).pack(pady=12)
+
+    def _on_cb_toggled(self, cb_var, limit_var):
+        if not cb_var.get():
+            limit_var.set("0")
+        elif limit_var.get() == "0":
+            limit_var.set("3")
+        self.panel_frame.on_cover_source_changed()
+
+    def _on_opt_changed(self, val, cb_var):
+        if val == "0":
+            cb_var.set(False)
+        else:
+            cb_var.set(True)
+        self.panel_frame.on_cover_source_changed()
 
 
 class CoverPanelFrame(ctk.CTkFrame):
@@ -119,7 +140,23 @@ class CoverPanelFrame(ctk.CTkFrame):
         self.source_deezer_var = ctk.BooleanVar(value=True)
         self.source_musicbrainz_var = ctk.BooleanVar(value=True)
 
+        # Per-provider limits variables
+        cover_limits = getattr(config, 'COVER_LIMITS', {"discogs": 3, "itunes": 3, "deezer": 3, "musicbrainz": 3})
+        self.limit_discogs_var = ctk.StringVar(value=str(cover_limits.get("discogs", 3)))
+        self.limit_itunes_var = ctk.StringVar(value=str(cover_limits.get("itunes", 3)))
+        self.limit_deezer_var = ctk.StringVar(value=str(cover_limits.get("deezer", 3)))
+        self.limit_musicbrainz_var = ctk.StringVar(value=str(cover_limits.get("musicbrainz", 3)))
+
         self._build_ui()
+
+    def get_provider_limits(self) -> Dict[str, int]:
+        """Returns active per-provider candidate cover limits."""
+        return {
+            "discogs": int(self.limit_discogs_var.get()) if self.source_discogs_var.get() and self.limit_discogs_var.get().isdigit() else 0,
+            "itunes": int(self.limit_itunes_var.get()) if self.source_itunes_var.get() and self.limit_itunes_var.get().isdigit() else 0,
+            "deezer": int(self.limit_deezer_var.get()) if self.source_deezer_var.get() and self.limit_deezer_var.get().isdigit() else 0,
+            "musicbrainz": int(self.limit_musicbrainz_var.get()) if self.source_musicbrainz_var.get() and self.limit_musicbrainz_var.get().isdigit() else 0,
+        }
 
     def _build_ui(self):
         self.cover_title = ctk.CTkLabel(self, text="Cover Art", font=ctk.CTkFont(size=14, weight="bold"))

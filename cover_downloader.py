@@ -67,13 +67,25 @@ class CoverDownloader:
         return score
 
     @classmethod
-    def search_cover_candidates(cls, album_artist: str, album: str, episode_title: Optional[str] = None, sources: Optional[List[str]] = None, episode_num: Optional[Any] = None) -> List[Dict[str, Any]]:
+    def search_cover_candidates(
+        cls, 
+        album_artist: str, 
+        album: str, 
+        episode_title: Optional[str] = None, 
+        sources: Optional[List[str]] = None, 
+        episode_num: Optional[Any] = None,
+        provider_limits: Optional[Dict[str, int]] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Searches active APIs for cover art candidates.
+        Searches active APIs for cover art candidates with per-provider limits.
         sources can contain "itunes", "deezer", "musicbrainz", "discogs".
         """
         if not sources:
             sources = ["discogs", "itunes", "deezer", "musicbrainz"]
+
+        if provider_limits is None:
+            import config
+            provider_limits = getattr(config, 'COVER_LIMITS', {"discogs": 3, "itunes": 3, "deezer": 3, "musicbrainz": 3})
 
         clean_artist = cls._clean_string(album_artist)
         raw_title = episode_title or album
@@ -124,29 +136,32 @@ class CoverDownloader:
         seen_urls = set()
 
         # 1. Discogs Source
-        if "discogs" in sources:
-            cls._search_discogs(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
+        discogs_limit = provider_limits.get("discogs", 3)
+        if "discogs" in sources and discogs_limit > 0:
+            cls._search_discogs(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=discogs_limit)
 
         # 2. iTunes Source
-        if "itunes" in sources:
-            cls._search_itunes(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
+        itunes_limit = provider_limits.get("itunes", 3)
+        if "itunes" in sources and itunes_limit > 0:
+            cls._search_itunes(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=itunes_limit)
 
         # 3. Deezer Source
-        if "deezer" in sources:
-            cls._search_deezer(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
+        deezer_limit = provider_limits.get("deezer", 3)
+        if "deezer" in sources and deezer_limit > 0:
+            cls._search_deezer(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=deezer_limit)
 
         # 4. MusicBrainz Source
-        if "musicbrainz" in sources:
-            cls._search_musicbrainz(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls)
+        mb_limit = provider_limits.get("musicbrainz", 3)
+        if "musicbrainz" in sources and mb_limit > 0:
+            cls._search_musicbrainz(queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=mb_limit)
 
         # Sort candidates by relevance score descending
         candidates.sort(key=lambda x: x["score"], reverse=True)
-        import config
-        max_count = getattr(config, 'MAX_COVER_COUNT', 6)
-        return candidates[:max_count]
+        return candidates
 
     @classmethod
-    def _search_discogs(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
+    def _search_discogs(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=3):
+        added = 0
         import config
         token = getattr(config, 'DISCOGS_API_TOKEN', '')
         headers = {"User-Agent": "HoerspielTagger/1.3.0 (+https://github.com/3Draco/HoerspielTagger)"}
@@ -210,11 +225,15 @@ class CoverDownloader:
                             "score": score,
                             "source": "discogs"
                         })
+                        added += 1
+                        if added >= max_results:
+                            return
             except Exception:
                 pass
 
     @classmethod
-    def _search_itunes(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
+    def _search_itunes(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=3):
+        added = 0
         url = "https://itunes.apple.com/search"
         for media, entity in [("music", "album"), ("audiobook", None)]:
             for query in queries:
@@ -251,11 +270,15 @@ class CoverDownloader:
                                 "score": score,
                                 "source": "itunes"
                             })
+                            added += 1
+                            if added >= max_results:
+                                return
                 except Exception:
                     pass
 
     @classmethod
-    def _search_deezer(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
+    def _search_deezer(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=3):
+        added = 0
         url = "https://api.deezer.com/search/album"
         for query in queries:
             if not query.strip():
@@ -287,11 +310,15 @@ class CoverDownloader:
                             "score": score,
                             "source": "deezer"
                         })
+                        added += 1
+                        if added >= max_results:
+                            return
             except Exception:
                 pass
 
     @classmethod
-    def _search_musicbrainz(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls):
+    def _search_musicbrainz(cls, queries, clean_artist, clean_title, ep_num_str, candidates, seen_urls, max_results=3):
+        added = 0
         headers = {"User-Agent": "HoerspielTagger/1.3.0 (+https://github.com/3Draco/HoerspielTagger)"}
         if not queries:
             return
@@ -336,6 +363,9 @@ class CoverDownloader:
                                         "score": score,
                                         "source": "musicbrainz"
                                     })
+                                    added += 1
+                                    if added >= max_results:
+                                        return
                                     break
                     except Exception:
                         pass
