@@ -113,6 +113,12 @@ class CoverChooserDialog(ctk.CTkToplevel):
 
     def _on_search_completed(self, cands: List[Dict[str, Any]]):
         """Called on main UI thread when candidate search finishes."""
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
+
         self.progress_bar.stop()
         self.progress_bar.pack_forget()
 
@@ -230,7 +236,13 @@ class CoverChooserDialog(ctk.CTkToplevel):
                 img.thumbnail((80, 80))
                 ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(img.width, img.height))
                 self.keep_image_refs.append(ctk_img)
-                self.after(0, lambda: label_widget.configure(image=ctk_img, text=""))
+                def set_thumb():
+                    try:
+                        if self.winfo_exists() and label_widget.winfo_exists():
+                            label_widget.configure(image=ctk_img, text="")
+                    except Exception:
+                        pass
+                self.after(0, set_thumb)
         except Exception:
             pass
 

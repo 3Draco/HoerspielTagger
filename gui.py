@@ -549,7 +549,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             print(f"Cover Drag & Drop Setup Info: {e}")
 
     def _on_drop_folder(self, event):
-        """Handles folder/file drag and drop events."""
+        """Handles folder/file drag and drop events safely for both folders and MP3 files."""
         raw_data = event.data
         if not raw_data:
             return
@@ -562,25 +562,32 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not paths:
             return
 
-        resolved_paths = []
-        for p in paths:
-            path_obj = Path(p).resolve()
-            if path_obj.exists():
-                if path_obj.is_file():
-                    resolved_paths.append(path_obj.parent)
-                else:
-                    resolved_paths.append(path_obj)
-
-        if not resolved_paths:
+        path_objs = [Path(p).resolve() for p in paths if Path(p).resolve().exists()]
+        if not path_objs:
             return
 
-        first_path = resolved_paths[0]
-        if len(paths) > 1:
-            target = first_path.parent
-            self.dragged_paths = {str(rp) for rp in resolved_paths}
+        all_files = all(p.is_file() for p in path_objs)
+
+        if all_files:
+            # MP3 files dropped
+            parent_dirs = {p.parent for p in path_objs}
+            target = list(parent_dirs)[0]
+            self.dragged_paths = {str(p) for p in path_objs} | {str(p.parent) for p in path_objs}
         else:
-            target = first_path
-            self.dragged_paths = {str(first_path)}
+            # Folders dropped
+            resolved_folders = []
+            for p in path_objs:
+                if p.is_file():
+                    resolved_folders.append(p.parent)
+                else:
+                    resolved_folders.append(p)
+            
+            first_folder = resolved_folders[0]
+            if len(resolved_folders) > 1:
+                target = first_folder.parent
+            else:
+                target = first_folder
+            self.dragged_paths = {str(rf) for rf in resolved_folders}
 
         self.target_dir = str(target)
         self.folder_lbl.configure(text=str(target))
