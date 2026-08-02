@@ -1202,13 +1202,18 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 self._clear_editor()
 
     def _clear_cover_display(self):
-        """Safely wipes cover image data and forces CustomTkinter CTkLabel to drop image rendering."""
+        """Safely wipes cover image data and forces CustomTkinter CTkLabel to drop image rendering without warnings."""
         self.cover_bytes = None
         self.current_ctk_image = None
         try:
-            self.cover_img_label.configure(image="", text="Kein Cover geladen")
             if hasattr(self.cover_img_label, "_image"):
                 self.cover_img_label._image = None
+            if hasattr(self.cover_img_label, "_label") and self.cover_img_label._label:
+                try:
+                    self.cover_img_label._label.configure(image="")
+                except Exception:
+                    pass
+            self.cover_img_label.configure(text="Kein Cover geladen")
             if hasattr(self.cover_img_label, "_draw"):
                 self.cover_img_label._draw()
         except Exception:
