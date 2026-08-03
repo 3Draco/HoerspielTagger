@@ -102,17 +102,13 @@ class SidebarFrame(ctk.CTkFrame):
         self.rename_folder_cb = ctk.CTkCheckBox(self, text="📁 Episoden-Ordner umbenennen", variable=self.rename_folder_var, command=self.on_update_preview)
         self.rename_folder_cb.grid(row=16, column=0, padx=20, pady=2, sticky="w")
 
-        self.parent_series_var = ctk.BooleanVar(value=True)
-        self.parent_series_cb = ctk.CTkCheckBox(self, text="🏛 Serien-Ordner darüber anlegen", variable=self.parent_series_var, command=self.on_update_preview)
-        self.parent_series_cb.grid(row=17, column=0, padx=20, pady=2, sticky="w")
-
         self.cover_var = ctk.BooleanVar(value=True)
         self.cover_cb = ctk.CTkCheckBox(self, text="Cover laden (wenn fehlt)", variable=self.cover_var)
-        self.cover_cb.grid(row=18, column=0, padx=20, pady=2, sticky="w")
+        self.cover_cb.grid(row=17, column=0, padx=20, pady=2, sticky="w")
 
         self.flat_episodes_var = ctk.BooleanVar(value=False)
         self.flat_episodes_cb = ctk.CTkCheckBox(self, text="💿 Jede MP3 als eigene Folge", variable=self.flat_episodes_var, command=self.on_flat_episodes_toggle)
-        self.flat_episodes_cb.grid(row=19, column=0, padx=20, pady=2, sticky="w")
+        self.flat_episodes_cb.grid(row=18, column=0, padx=20, pady=2, sticky="w")
 
         # Actions
         self.scan_btn = ctk.CTkButton(self, text="Ordner neu scannen", command=self.on_scan_folder, state="disabled", fg_color="#2d88ad", hover_color="#1e5e78")

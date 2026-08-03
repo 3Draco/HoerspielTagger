@@ -160,7 +160,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 "merge": self.merge_var.get(),
                 "delete_tracks": self.delete_tracks_var.get(),
                 "rename_folder": self.rename_folder_var.get(),
-                "parent_series": self.parent_series_var.get(),
                 "cover": self.cover_var.get(),
                 "target_dir": self.target_dir,
                 "source_embedded": self.source_embedded_var.get(),
@@ -215,8 +214,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
     def delete_tracks_var(self): return self.sidebar.delete_tracks_var
     @property
     def rename_folder_var(self): return self.sidebar.rename_folder_var
-    @property
-    def parent_series_var(self): return self.sidebar.parent_series_var
     @property
     def cover_var(self): return self.sidebar.cover_var
     @property
@@ -455,7 +452,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         self.merge_var.set(self.loaded_settings.get("merge", False))
         self.delete_tracks_var.set(self.loaded_settings.get("delete_tracks", False))
         self.rename_folder_var.set(self.loaded_settings.get("rename_folder", True))
-        self.parent_series_var.set(self.loaded_settings.get("parent_series", True))
         self.cover_var.set(self.loaded_settings.get("cover", True))
 
         # Load cover sources settings
@@ -1945,14 +1941,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             # Flat mode: Base container is the scanned disk folder
             clean_segments.append(disk_folder_name)
 
-            if self.parent_series_var.get() and album_artist:
-                clean_series = album_artist.strip(" -_\t\r\n")
-                for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
-                    clean_series = clean_series.replace(char, "_")
-                clean_series = clean_series.strip(" -_\t\r\n")
-                if clean_series and clean_segments[0].lower() != clean_series.lower():
-                    clean_segments.insert(0, clean_series)
-
             if self.rename_folder_var.get():
                 ep_folder_raw = self._format_pattern(folder_pattern, ctx) if folder_pattern else folder_path_name
                 import re
@@ -1984,14 +1972,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
             if not clean_segments:
                 clean_segments = [disk_folder_name]
-
-            if self.parent_series_var.get() and album_artist:
-                clean_series = album_artist.strip(" -_\t\r\n")
-                for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
-                    clean_series = clean_series.replace(char, "_")
-                clean_series = clean_series.strip(" -_\t\r\n")
-                if clean_series and clean_segments[0].lower() != clean_series.lower():
-                    clean_segments.insert(0, clean_series)
 
         self.structure_tab.preview_textbox.delete("0.0", tk.END)
 
@@ -2491,19 +2471,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         is_flat = album.get("flat_mode", False)
 
         # 0. In flat mode, determine and create target folder immediately if option is active
-        if is_flat and (self.rename_folder_var.get() or self.parent_series_var.get()):
-            target_ep_folder_name = album_name if (self.rename_folder_var.get() and album_name) else album["folder_name"]
+        if is_flat and self.rename_folder_var.get():
+            target_ep_folder_name = album_name if album_name else album["folder_name"]
             for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                 target_ep_folder_name = target_ep_folder_name.replace(char, "_")
 
-            if self.parent_series_var.get() and album_artist:
-                clean_series_name = album_artist
-                for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                    clean_series_name = clean_series_name.replace(char, "_")
-                final_folder_path = folder_path / clean_series_name / target_ep_folder_name
-            else:
-                final_folder_path = folder_path / target_ep_folder_name
-
+            final_folder_path = folder_path / target_ep_folder_name
             final_folder_path.mkdir(parents=True, exist_ok=True)
             write_dest_dir = final_folder_path
         else:
@@ -2670,13 +2643,6 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
                 if not clean_segs:
                     clean_segs = [album_name or "Unbenannter Ordner"]
-
-                if self.parent_series_var.get() and album_artist:
-                    clean_series = album_artist.strip(" -_\t\r\n")
-                    for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
-                        clean_series = clean_series.replace(char, "_")
-                    if clean_segs[0].lower() != clean_series.lower():
-                        clean_segs.insert(0, clean_series)
 
                 parent_base = folder_path.parent
                 target_dir = parent_base
