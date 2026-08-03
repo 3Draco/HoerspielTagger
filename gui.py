@@ -699,6 +699,8 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         img_data = f.read()
                     # Verify image
                     Image.open(io.BytesIO(img_data))
+                    self.cover_bytes = img_data
+                    self._display_cover_image(self.cover_bytes)
                     fname = p.name
                     if len(fname) > 32:
                         fname = fname[:15] + "..." + fname[-14:]
@@ -2115,10 +2117,12 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             try:
                 with open(file_path, "rb") as f:
                     self.cover_bytes = f.read()
+                self._display_cover_image(self.cover_bytes)
                 fname = Path(file_path).name
                 if len(fname) > 32:
                     fname = fname[:15] + "..." + fname[-14:]
                 self.cover_status_lbl.configure(text=f"Manuelles Cover geladen:\n({fname})", text_color="#1f538d")
+                self._save_current_album_state()
             except Exception as e:
                 messagebox.showerror("Fehler beim Laden", str(e))
 
