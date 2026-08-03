@@ -112,12 +112,13 @@
       "Hörspiel",
       "Horror"
     ],
+    "genre": "Hörspiel; Horror",
     "aliases": [
       "John Sinclair",
       "JS"
     ],
     "composer": "Jason Dark",
-    "publisher": "Lübbe Audio",
+    "publisher": "Tonstudio Braun",
     "comment": ""
   },
   "gabriel burns": {
