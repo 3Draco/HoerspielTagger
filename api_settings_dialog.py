@@ -89,11 +89,6 @@ class ApiSettingsDialog(ctk.CTkToplevel):
         self.discogs_token_ent = ctk.CTkEntry(conn_frame, show="*", placeholder_text="Personal Access Token")
         self.discogs_token_ent.grid(row=3, column=1, padx=10, pady=6, sticky="ew")
 
-        # Max Cover Variants Count
-        ctk.CTkLabel(conn_frame, text="Max. Cover-Anzahl:").grid(row=4, column=0, padx=10, pady=6, sticky="w")
-        self.max_cover_opt = ctk.CTkOptionMenu(conn_frame, values=["3", "6", "10", "15", "20"])
-        self.max_cover_opt.grid(row=4, column=1, padx=10, pady=6, sticky="w")
-
         # Test connection button & status label row
         test_frame = ctk.CTkFrame(conn_frame, fg_color="transparent")
         test_frame.grid(row=5, column=0, columnspan=2, padx=10, pady=(4, 8), sticky="ew")
@@ -141,7 +136,6 @@ class ApiSettingsDialog(ctk.CTkToplevel):
         self.api_key_ent.insert(0, getattr(config, 'LLM_API_KEY', "lm-studio"))
         self.model_ent.insert(0, getattr(config, 'LLM_MODEL_ID', "meta-llama-3-8b-instruct"))
         self.discogs_token_ent.insert(0, getattr(config, 'DISCOGS_API_TOKEN', ""))
-        self.max_cover_opt.set(str(getattr(config, 'MAX_COVER_COUNT', 6)))
         
         current_prompt = getattr(config, 'LLM_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT) or DEFAULT_SYSTEM_PROMPT
         self.prompt_txt.insert("0.0", current_prompt)
@@ -181,10 +175,6 @@ class ApiSettingsDialog(ctk.CTkToplevel):
         key = self.api_key_ent.get().strip()
         model = self.model_ent.get().strip()
         discogs_token = self.discogs_token_ent.get().strip()
-        try:
-            max_cover = int(self.max_cover_opt.get().strip())
-        except Exception:
-            max_cover = 6
         prompt = self.prompt_txt.get("0.0", tk.END).strip()
 
         if not prompt:
@@ -194,7 +184,6 @@ class ApiSettingsDialog(ctk.CTkToplevel):
         config.LLM_API_KEY = key
         config.LLM_MODEL_ID = model
         config.DISCOGS_API_TOKEN = discogs_token
-        config.MAX_COVER_COUNT = max_cover
         config.LLM_SYSTEM_PROMPT = prompt
 
         self.on_save_callback(url, key, model, prompt)
