@@ -210,16 +210,28 @@
     "publisher": "Pandoras Play",
     "comment": "Ein Hörspiel nach einer Hommage an den spekulativen Unterhaltungsfilm der siebziger und achtziger Jahre von André Hettrich. Sie sind der Stoßtrupp ins Inferno."
   },
-  "asterix & obelix": {
-    "display_name": "Asterix & Obelix",
+  "asterix": {
+    "display_name": "Asterix",
     "genres": [
       "Hörspiel",
       "Abenteuer"
     ],
     "genre": "Hörspiel; Abenteuer",
     "aliases": [],
+    "composer": "Goscinny-Uderzo",
+    "publisher": "EUROPA",
+    "comment": "Ein von unbeugsamen Galliern bevölkertes Dorf hört nicht auf, den Römern Widerstand zu leisten. Die Abenteuer von Asterix zählen zu den beliebtesten und erfolgreichsten Comics überhaupt."
+  },
+  "balduin pfiff": {
+    "display_name": "Balduin Pfiff",
+    "genres": [
+      "Hörspiel",
+      "Detektiv"
+    ],
+    "genre": "Hörspiel; Detektiv",
+    "aliases": [],
     "composer": "",
-    "publisher": "Karussell",
+    "publisher": "",
     "comment": ""
   }
 }
