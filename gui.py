@@ -1627,14 +1627,17 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             row_num = i_t + 1
             prop = next((t for t in metadata.tracks if t.original_filename == track["filename"]), None)
             raw_clean = prop.clean_title if prop else track["title"] or Path(track["filename"]).stem
-            clean_title_val = self._clean_track_title(raw_clean, series_name)
+            extracted_num, clean_title_val = self._clean_track_title(raw_clean, series_name)
             track_num_val = prop.track_number if prop else (track["track_number"] or row_num)
 
             # If folder has only 1 file (single episode MP3), use episode_title directly!
             if len(orig_tracks) == 1:
-                clean_title_val = episode_title
+                if episode_title:
+                    clean_title_val = episode_title
                 if episode_num:
                     track_num_val = episode_num
+                elif extracted_num:
+                    track_num_val = extracted_num
 
             track_rows.append({
                 "original_filename": track["filename"],
@@ -1835,6 +1838,38 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         threading.Thread(target=fetch_cover_thread, args=(current_token,), daemon=True).start()
 
+    @staticmethod
+    def _clean_track_title(raw_title: str, series_name: str = "") -> tuple[Optional[int], str]:
+        """
+        Cleans leading track/episode numbers from titles (e.g. '041 - Das Leichenhaus der L' -> (41, 'Das Leichenhaus der L')).
+        Returns (extracted_number, cleaned_title).
+        """
+        import re
+        if not raw_title:
+            return None, ""
+        
+        clean = raw_title.strip()
+        if clean.lower().endswith(".mp3"):
+            clean = clean[:-4].strip()
+
+        if series_name:
+            pattern = re.escape(series_name)
+            clean = re.sub(f"^{pattern}\\s*[-_:]?\\s*", "", clean, flags=re.IGNORECASE).strip()
+
+        match = re.match(r"^(\d{1,4})\s*[-_\.:)]\s*(.+)$", clean)
+        if match:
+            num = int(match.group(1))
+            t_str = match.group(2).strip()
+            return num, t_str
+
+        match_space = re.match(r"^(\d{1,4})\s+([A-Za-zÄÖÜäöüß].*)$", clean)
+        if match_space:
+            num = int(match_space.group(1))
+            t_str = match_space.group(2).strip()
+            return num, t_str
+
+        return None, clean
+
     def _format_pattern(self, pattern: str, ctx: Dict[str, Any]) -> str:
         """Evaluates custom pattern tokens using metadata context dictionary."""
         if not pattern:
@@ -1922,12 +1957,14 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Fallback values for context if fields are empty (e.g. before LLM analysis)
         first_track_title = ""
+        extracted_num = None
         if self.track_rows:
             first_row = self.track_rows[0]
-            first_track_title = first_row["title_entry"].get() if ("title_entry" in first_row and hasattr(first_row["title_entry"], "get")) else first_row.get("clean_title", "")
+            raw_t = first_row["title_entry"].get() if ("title_entry" in first_row and hasattr(first_row["title_entry"], "get")) else first_row.get("clean_title", "")
+            extracted_num, first_track_title = self._clean_track_title(raw_t, series)
         
         fallback_ep_title = ep_title or first_track_title or folder_path_name
-        fallback_ep_part = ep_part if ep_part is not None else 1
+        fallback_ep_part = ep_part if ep_part is not None else (extracted_num or 1)
 
         ctx = {
             "series": series or album_artist or "Hörspiel",
@@ -2308,12 +2345,34 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 log_msgs.append(f"  Jahr:           {year if year else 'Keines'}")
 
                 changes = []
+                file_pattern = self.structure_tab.get_file_pattern() if hasattr(self, "structure_tab") else "%Track:02d% - %Folgentitel%.mp3"
+
                 for row in track_rows:
                     orig_filename = row.get("original_filename", "")
                     filepath = row.get("filepath", "")
                     track_num = row.get("track_number", 1)
-                    clean_title = row.get("clean_title", "")
-                    new_filename = f"{track_num:02d} - {clean_title}.mp3"
+                    raw_title = row.get("clean_title", "")
+                    _, clean_title = self._clean_track_title(raw_title, album_artist)
+
+                    t_ctx = {
+                        "series": album_artist,
+                        "album_artist": album_artist,
+                        "series_part": series_part,
+                        "episode_title": ep_title or clean_title,
+                        "album": album_name,
+                        "year": year,
+                        "artist": album_artist,
+                        "track_number": track_num,
+                        "clean_title": clean_title
+                    }
+
+                    new_filename = self._format_pattern(file_pattern, t_ctx)
+                    if not new_filename.lower().endswith(".mp3"):
+                        new_filename += ".mp3"
+
+                    for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                        new_filename = new_filename.replace(char, "_")
+
                     changes.append({
                         "orig_filename": orig_filename,
                         "filepath": filepath,
