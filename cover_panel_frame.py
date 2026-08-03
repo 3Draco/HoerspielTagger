@@ -163,8 +163,16 @@ class CoverPanelFrame(ctk.CTkFrame):
         self.cover_title.grid(row=0, column=0, padx=10, pady=10)
 
         # Cover Image Canvas / Label
-        self.cover_img_label = ctk.CTkLabel(self, text="Kein Cover geladen", fg_color="#2b2b2b", width=300, height=300)
+        self.cover_img_label = ctk.CTkLabel(
+            self, 
+            text="📥 Kein Cover geladen\n\n(Bild per Drag & Drop\nhierher ziehen oder klicken)", 
+            fg_color="#2b2b2b", 
+            width=300, 
+            height=300,
+            cursor="hand2"
+        )
         self.cover_img_label.grid(row=1, column=0, padx=15, pady=10, sticky="n")
+        self.cover_img_label.bind("<Button-1>", lambda e: self.on_load_manual_cover() if callable(self.on_load_manual_cover) else None)
 
         self.cover_status_lbl = ctk.CTkLabel(self, text="", text_color="gray")
         self.cover_status_lbl.grid(row=2, column=0, padx=10, pady=5)

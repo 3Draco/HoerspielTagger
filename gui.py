@@ -525,12 +525,19 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             print(f"Folder Drag & Drop Setup Info: {e}")
             
         try:
-            # Gather cover widgets, including underlying Tkinter components for safety in CTk
-            cover_widgets = [self.cover_panel, self.cover_img_label]
-            if hasattr(self.cover_panel, "_canvas"):
-                cover_widgets.append(self.cover_panel._canvas)
-            if hasattr(self.cover_img_label, "_label"):
-                cover_widgets.append(self.cover_img_label._label)
+            # Collect all widgets within the cover panel frame that should accept image drop
+            cover_widgets = [self.cover_panel, self.cover_panel.cover_img_label]
+            if hasattr(self.cover_panel, "cover_title"):
+                cover_widgets.append(self.cover_panel.cover_title)
+            
+            # Add underlying Tkinter widgets (_label, _canvas) for reliable event interception
+            extra_tk_widgets = []
+            for w in cover_widgets:
+                if hasattr(w, "_label"):
+                    extra_tk_widgets.append(w._label)
+                if hasattr(w, "_canvas"):
+                    extra_tk_widgets.append(w._canvas)
+            cover_widgets.extend(extra_tk_widgets)
 
             for widget in cover_widgets:
                 # Register for files (local image files dropped)
@@ -669,23 +676,44 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                     self.after(0, self._clear_status)
                     
             threading.Thread(target=download_web_cover, daemon=True).start()
-        else:
-            # 3. Handle local file drops
+            return
+
+        # 3. Handle local file drops safely
+        try:
             try:
                 paths = self.tk.splitlist(raw_data)
-                if paths:
-                    p = Path(paths[0])
-                    if p.exists() and p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
-                        with open(p, "rb") as f:
-                            img_data = f.read()
-                        # Verify image
-                        Image.open(io.BytesIO(img_data))
-                        self.cover_bytes = img_data
-                        self._display_cover_image(self.cover_bytes)
-                        self.cover_status_lbl.configure(text="Cover per Drag & Drop geladen", text_color="#2b712b")
-                        self._save_current_album_state()
-            except Exception as e:
-                messagebox.showerror("Fehler beim Laden", f"Konnte lokale Bilddatei nicht lesen: {e}")
+            except Exception:
+                paths = [raw_data.strip("{}")]
+                
+            if not paths:
+                return
+
+            clean_path_str = paths[0].strip("{} \"'")
+            p = Path(clean_path_str).resolve()
+            
+            # Safeguard: If user dropped a directory on cover panel, redirect to folder drop handler safely
+            if p.exists() and p.is_dir():
+                self._on_drop_folder(event)
+                return
+
+            if p.exists() and p.is_file():
+                valid_extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff"]
+                if p.suffix.lower() in valid_extensions:
+                    with open(p, "rb") as f:
+                        img_data = f.read()
+                    # Verify image
+                    Image.open(io.BytesIO(img_data))
+                    self.cover_bytes = img_data
+                    self._display_cover_image(self.cover_bytes)
+                    self.cover_status_lbl.configure(text=f"Cover per Drag & Drop geladen ({p.name})", text_color="#2b712b")
+                    self._save_current_album_state()
+                else:
+                    messagebox.showwarning(
+                        "Ungültiges Dateiformat", 
+                        f"Die Datei '{p.name}' ist kein unterstütztes Bild-Format ({', '.join(valid_extensions)})."
+                    )
+        except Exception as e:
+            messagebox.showerror("Fehler beim Laden", f"Konnte lokale Bilddatei nicht lesen: {e}")
 
     def _get_active_cover_sources(self) -> List[str]:
         sources = []
