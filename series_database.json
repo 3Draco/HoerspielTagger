@@ -235,16 +235,18 @@
     "publisher": "",
     "comment": ""
   },
-  "jason dark": {
-    "display_name": "Jason Dark",
+  "john sinclair 2000": {
+    "display_name": "John Sinclair 2000",
     "genres": [
       "Hörspiel",
       "Horror"
     ],
     "genre": "Hörspiel; Horror",
-    "aliases": [],
-    "composer": "",
-    "publisher": "",
+    "aliases": [
+      "js2000"
+    ],
+    "composer": "Jason Dark",
+    "publisher": "Lübbe Audio",
     "comment": ""
   }
 }
