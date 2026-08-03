@@ -174,7 +174,7 @@ class CoverPanelFrame(ctk.CTkFrame):
         self.cover_img_label.grid(row=1, column=0, padx=15, pady=10, sticky="n")
         self.cover_img_label.bind("<Button-1>", lambda e: self.on_load_manual_cover() if callable(self.on_load_manual_cover) else None)
 
-        self.cover_status_lbl = ctk.CTkLabel(self, text="", text_color="gray")
+        self.cover_status_lbl = ctk.CTkLabel(self, text="", text_color="gray", wraplength=320)
         self.cover_status_lbl.grid(row=2, column=0, padx=10, pady=5)
 
         # Cover sources clean frame

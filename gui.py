@@ -699,9 +699,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                         img_data = f.read()
                     # Verify image
                     Image.open(io.BytesIO(img_data))
-                    self.cover_bytes = img_data
-                    self._display_cover_image(self.cover_bytes)
-                    self.cover_status_lbl.configure(text=f"Cover per Drag & Drop geladen ({p.name})", text_color="#2b712b")
+                    fname = p.name
+                    if len(fname) > 32:
+                        fname = fname[:15] + "..." + fname[-14:]
+                    self.cover_status_lbl.configure(text=f"Cover per Drag & Drop geladen\n({fname})", text_color="#2b712b")
                     self._save_current_album_state()
                 else:
                     messagebox.showwarning(
@@ -1603,8 +1604,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 try:
                     with open(local_cover, "rb") as f:
                         self.cover_bytes = f.read()
-                    self._display_cover_image(self.cover_bytes)
-                    self.cover_status_lbl.configure(text=f"Lokales Cover gefunden: {Path(local_cover).name}", text_color="gray")
+                    fname = Path(local_cover).name
+                    if len(fname) > 32:
+                        fname = fname[:15] + "..." + fname[-14:]
+                    self.cover_status_lbl.configure(text=f"Lokales Cover gefunden:\n{fname}", text_color="gray")
                 except Exception:
                     pass
             
@@ -2112,8 +2115,10 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
             try:
                 with open(file_path, "rb") as f:
                     self.cover_bytes = f.read()
-                self._display_cover_image(self.cover_bytes)
-                self.cover_status_lbl.configure(text=f"Manuelles Cover: {Path(file_path).name}", text_color="#1f538d")
+                fname = Path(file_path).name
+                if len(fname) > 32:
+                    fname = fname[:15] + "..." + fname[-14:]
+                self.cover_status_lbl.configure(text=f"Manuelles Cover geladen:\n({fname})", text_color="#1f538d")
             except Exception as e:
                 messagebox.showerror("Fehler beim Laden", str(e))
 
