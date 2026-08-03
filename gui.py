@@ -1890,11 +1890,20 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         if not hasattr(self, "structure_tab") or not hasattr(self.structure_tab, "preview_textbox"):
             return
 
+        current_album = self.scan_results[self.current_album_idx] if (self.scan_results and 0 <= self.current_album_idx < len(self.scan_results)) else None
+        if not current_album:
+            return
+
+        is_flat = current_album.get("flat_mode", False)
+        disk_folder_path = Path(current_album["folder_path"])
+        disk_folder_name = disk_folder_path.name
+        folder_path_name = current_album.get("folder_name", disk_folder_name)
+
         album_artist = self.form_entries["album_artist"].get().strip() if "album_artist" in self.form_entries else ""
         album = self.form_entries["album"].get().strip() if "album" in self.form_entries else ""
         ep_title = self.form_entries["episode_title"].get().strip() if "episode_title" in self.form_entries else ""
         series = self.form_entries["series"].get().strip() if "series" in self.form_entries else album_artist
-        
+
         ep_part_str = self.form_entries["series_part"].get().strip() if "series_part" in self.form_entries else ""
         try:
             ep_part = int(ep_part_str) if ep_part_str.isdigit() else None
@@ -1907,49 +1916,82 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         except Exception:
             year_val = None
 
-        folder_path_name = self.scan_results[self.current_album_idx]["folder_name"] if (self.scan_results and self.current_album_idx in range(len(self.scan_results))) else "Unbenannter Ordner"
-
         folder_pattern = self.structure_tab.get_folder_pattern()
         file_pattern = self.structure_tab.get_file_pattern()
 
+        # Fallback values for context if fields are empty (e.g. before LLM analysis)
+        first_track_title = ""
+        if self.track_rows:
+            first_row = self.track_rows[0]
+            first_track_title = first_row["title_entry"].get() if ("title_entry" in first_row and hasattr(first_row["title_entry"], "get")) else first_row.get("clean_title", "")
+        
+        fallback_ep_title = ep_title or first_track_title or folder_path_name
+        fallback_ep_part = ep_part if ep_part is not None else 1
+
         ctx = {
-            "series": series or album_artist,
-            "album_artist": album_artist,
-            "series_part": ep_part,
-            "episode_title": ep_title,
-            "album": album,
+            "series": series or album_artist or "Hörspiel",
+            "album_artist": album_artist or "Hörspiel",
+            "series_part": fallback_ep_part,
+            "episode_title": fallback_ep_title,
+            "album": album or folder_path_name,
             "year": year_val,
-            "artist": album_artist
+            "artist": album_artist or "Hörspiel"
         }
 
-        if self.rename_folder_var.get() and folder_pattern:
-            ep_folder_raw = self._format_pattern(folder_pattern, ctx)
-        else:
-            ep_folder_raw = folder_path_name
-
-        if not ep_folder_raw.strip():
-            ep_folder_raw = album or "Unbenannter Ordner"
-
-        import re
-        folder_segments = [seg.strip(" -_\t\r\n") for seg in re.split(r'[/\\]', ep_folder_raw) if seg.strip()]
+        # Build clean directory segments for live preview tree
         clean_segments = []
-        for seg in folder_segments:
-            for char in [':', '*', '?', '"', '<', '>', '|']:
-                seg = seg.replace(char, "_")
-            seg = seg.strip(" -_\t\r\n")
-            if seg:
-                clean_segments.append(seg)
 
-        if not clean_segments:
-            clean_segments = ["Unbenannter Ordner"]
+        if is_flat:
+            # Flat mode: Base container is the scanned disk folder
+            clean_segments.append(disk_folder_name)
 
-        # Insert parent series folder if requested and not already top segment
-        if self.parent_series_var.get() and album_artist:
-            clean_series = album_artist.strip(" -_\t\r\n")
-            for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
-                clean_series = clean_series.replace(char, "_")
-            if clean_segments[0].lower() != clean_series.lower():
-                clean_segments.insert(0, clean_series)
+            if self.parent_series_var.get() and album_artist:
+                clean_series = album_artist.strip(" -_\t\r\n")
+                for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
+                    clean_series = clean_series.replace(char, "_")
+                clean_series = clean_series.strip(" -_\t\r\n")
+                if clean_series and clean_segments[0].lower() != clean_series.lower():
+                    clean_segments.insert(0, clean_series)
+
+            if self.rename_folder_var.get():
+                ep_folder_raw = self._format_pattern(folder_pattern, ctx) if folder_pattern else folder_path_name
+                import re
+                sub_segs = [seg.strip(" -_\t\r\n") for seg in re.split(r'[/\\]', ep_folder_raw) if seg.strip()]
+                for seg in sub_segs:
+                    for char in [':', '*', '?', '"', '<', '>', '|']:
+                        seg = seg.replace(char, "_")
+                    seg = seg.strip(" -_\t\r\n")
+                    if seg:
+                        clean_segments.append(seg)
+        else:
+            # Normal album folder mode
+            if self.rename_folder_var.get() and folder_pattern:
+                ep_folder_raw = self._format_pattern(folder_pattern, ctx)
+            else:
+                ep_folder_raw = folder_path_name
+
+            if not ep_folder_raw.strip():
+                ep_folder_raw = folder_path_name
+
+            import re
+            raw_segs = [seg.strip(" -_\t\r\n") for seg in re.split(r'[/\\]', ep_folder_raw) if seg.strip()]
+            for seg in raw_segs:
+                for char in [':', '*', '?', '"', '<', '>', '|']:
+                    seg = seg.replace(char, "_")
+                seg = seg.strip(" -_\t\r\n")
+                if seg:
+                    clean_segments.append(seg)
+
+            if not clean_segments:
+                clean_segments = [disk_folder_name]
+
+            if self.parent_series_var.get() and album_artist:
+                clean_series = album_artist.strip(" -_\t\r\n")
+                for char in [':', '*', '?', '"', '<', '>', '|', '/', '\\']:
+                    clean_series = clean_series.replace(char, "_")
+                clean_series = clean_series.strip(" -_\t\r\n")
+                if clean_series and clean_segments[0].lower() != clean_series.lower():
+                    clean_segments.insert(0, clean_series)
 
         self.structure_tab.preview_textbox.delete("0.0", tk.END)
 
@@ -1967,7 +2009,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         indent = current_indent[:-5]
 
         if self.merge_var.get():
-            merged_filename = f"{album}.mp3" if album else "Hörspiel_Gesamt.mp3"
+            merged_filename = f"{album}.mp3" if album else f"{folder_path_name}.mp3"
             for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                 merged_filename = merged_filename.replace(char, "_")
             
