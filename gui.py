@@ -2186,10 +2186,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
         
         # Ensure single digit prefix in album name is padded to 2 digits (e.g. "4 - " -> "04 - ")
         import re
-        match = re.match(r"^(\d+)\s*-\s*(.*)$", album_name)
-        if match:
-            num_str, title_str = match.groups()
-            album_name = f"{int(num_str):02d} - {title_str}"
+        # Keep album_name clean without hardcoding 2-digit format
 
         genre = self.form_entries["genre"].get()
         
@@ -2325,11 +2322,7 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
                 album_artist = form_data.get("album_artist") or album.get("album_artist") or album.get("folder_name", "")
                 album_name = form_data.get("album") or album.get("album") or album.get("folder_name", "")
 
-                import re
-                match = re.match(r"^(\d+)\s*-\s*(.*)$", album_name)
-                if match:
-                    num_str, title_str = match.groups()
-                    album_name = f"{int(num_str):02d} - {title_str}"
+                # Keep album_name clean without hardcoding 2-digit format
 
                 ep_title = form_data.get("episode_title") or (album_name.split(" - ", 1)[-1] if " - " in album_name else album_name)
                 series_part = form_data.get("series_part") or ""
@@ -2540,9 +2533,25 @@ class HoerspielTaggerGUI(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # 0. In flat mode, determine and create target folder immediately if option is active
         if is_flat and self.rename_folder_var.get():
-            target_ep_folder_name = album_name if album_name else album["folder_name"]
+            folder_pattern = self.structure_tab.get_folder_pattern() if hasattr(self, "structure_tab") else ""
+            if folder_pattern:
+                ctx = {
+                    "series": album_artist,
+                    "album_artist": album_artist,
+                    "series_part": series_part,
+                    "episode_title": episode_title or album_name,
+                    "album": album_name,
+                    "year": year,
+                    "artist": album_artist
+                }
+                target_ep_folder_name = self._format_pattern(folder_pattern, ctx)
+            else:
+                target_ep_folder_name = album_name or album["folder_name"]
+
             for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
                 target_ep_folder_name = target_ep_folder_name.replace(char, "_")
+
+            target_ep_folder_name = target_ep_folder_name.strip(" -_\t\r\n") or album["folder_name"]
 
             final_folder_path = folder_path / target_ep_folder_name
             final_folder_path.mkdir(parents=True, exist_ok=True)

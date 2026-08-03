@@ -234,5 +234,17 @@
     "composer": "",
     "publisher": "",
     "comment": ""
+  },
+  "jason dark": {
+    "display_name": "Jason Dark",
+    "genres": [
+      "Hörspiel",
+      "Horror"
+    ],
+    "genre": "Hörspiel; Horror",
+    "aliases": [],
+    "composer": "",
+    "publisher": "",
+    "comment": ""
   }
 }
